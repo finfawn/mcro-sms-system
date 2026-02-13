@@ -73,7 +73,7 @@
             <x-responsive-nav-link :href="route('services.index')" :active="request()->routeIs('services.*')">
                 {{ __('Services') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('templates.index')" :active="request()->routeIs('templates.*')">
+            <x-responsive-nav-link :href="route('sms-templates.index')" :active="request()->routeIs('sms-templates.*')">
                 {{ __('SMS Templates') }}
             </x-responsive-nav-link>
         </div>

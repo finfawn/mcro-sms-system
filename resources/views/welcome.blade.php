@@ -39,12 +39,12 @@
                 <!-- LOGIN BUTTON NOW AFTER DESCRIPTION -->
                 <div class="welcome-actions">
                     @auth
-                        <a href="{{ url('/dashboard') }}" class="btn btn-primary">
-                            <span>📁 Dashboard</span>
+                        <a href="{{ url('/services') }}" class="btn btn-primary">
+                            <span>Services</span>
                         </a>
                     @else
                         <a href="{{ route('login') }}" class="btn btn-primary">
-                            <span>🔐 Log in</span>
+                            <span>Log in</span>
                         </a>
                     @endauth
                 </div>

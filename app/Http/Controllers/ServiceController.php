@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Service;
+use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -91,6 +92,7 @@ class ServiceController extends Controller
             'remarks' => ['nullable', 'string'],
         ]);
 
+        $previousStatus = $service->status;
         $service->update([
             'citizen_name' => $validated['citizen_name'],
             'mobile_number' => $validated['mobile_number'],
@@ -99,6 +101,18 @@ class ServiceController extends Controller
             'status' => $validated['status'],
             'remarks' => $validated['remarks'] ?? null,
         ]);
+
+        if (
+            $validated['service_type'] === 'Application for Marriage License' &&
+            $previousStatus !== 'Released' &&
+            $validated['status'] === 'Released' &&
+            !$service->sms_release_sent
+        ) {
+            (new SmsService())->send($service, 'released');
+            $service->sms_release_sent = true;
+            $service->release_date = now()->toDateString();
+            $service->save();
+        }
 
         return redirect()->route('services.index')->with('status', 'Service updated');
     }

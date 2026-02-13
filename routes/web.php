@@ -9,9 +9,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Default authenticated landing page is Services index
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -30,12 +28,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/services/{id}/restore', [ServiceController::class, 'restore'])->name('services.restore');
     Route::post('/services/{id}/force-delete', [ServiceController::class, 'forceDelete'])->name('services.force-delete');
 
-    Route::get('/templates', [SmsTemplateController::class, 'index'])->name('templates.index');
-    Route::get('/templates/create', [SmsTemplateController::class, 'create'])->name('templates.create');
-    Route::post('/templates', [SmsTemplateController::class, 'store'])->name('templates.store');
-    Route::get('/templates/{template}/edit', [SmsTemplateController::class, 'edit'])->name('templates.edit');
-    Route::put('/templates/{template}', [SmsTemplateController::class, 'update'])->name('templates.update');
-    Route::delete('/templates/{template}', [SmsTemplateController::class, 'destroy'])->name('templates.destroy');
+    Route::get('/sms-templates', [SmsTemplateController::class, 'index'])->name('sms-templates.index');
+    Route::put('/sms-templates/{template}', [SmsTemplateController::class, 'update'])->name('sms-templates.update');
 });
 
 require __DIR__.'/auth.php';

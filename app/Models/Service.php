@@ -18,5 +18,17 @@ class Service extends Model
         'service_type',
         'status',
         'remarks',
+        'payment_date',
+        'posting_start_date',
+        'release_date',
+        'sms_posting_sent',
+        'sms_release_sent',
+    ];
+    protected $casts = [
+        'payment_date' => 'date',
+        'posting_start_date' => 'date',
+        'release_date' => 'date',
+        'sms_posting_sent' => 'boolean',
+        'sms_release_sent' => 'boolean',
     ];
 }

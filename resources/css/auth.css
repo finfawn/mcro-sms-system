@@ -1,0 +1,259 @@
+body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #deeaf2;  /* Bagong Pilipinas - modern civic */
+            background-image: 
+                repeating-linear-gradient(125deg, 
+                    transparent 0px,
+                    transparent 35px,
+                    rgba(0, 86, 130, 0.02) 35px,
+                    rgba(0, 86, 130, 0.02) 38px,
+                    transparent 38px,
+                    transparent 73px),
+                repeating-linear-gradient(55deg, 
+                    transparent 0px,
+                    transparent 65px,
+                    rgba(182, 139, 80, 0.014) 65px,
+                    rgba(182, 139, 80, 0.014) 68px,
+                    transparent 68px,
+                    transparent 103px),
+                repeating-linear-gradient(0deg,
+                    rgba(30, 100, 140, 0.01) 0px,
+                    rgba(30, 100, 140, 0.01) 1px,
+                    transparent 1px,
+                    transparent 24px),
+                radial-gradient(circle at 10% 20%, 
+                    rgba(70, 160, 200, 0.03) 0%, 
+                    transparent 45%),
+                radial-gradient(circle at 95% 80%, 
+                    rgba(252, 209, 22, 0.02) 0%, 
+                    transparent 50%),
+                radial-gradient(circle at 50% 50%, 
+                    rgba(255, 255, 255, 0.12) 0%, 
+                    transparent 75%);
+            font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* TOP EDGE HERITAGE STRIPE */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, #002b5e 25%, #9e7e4e 50%, #002b5e 75%);
+            box-shadow: 0 2px 6px rgba(0,20,30,0.06);
+            z-index: 50;
+        }
+
+        /* AUTH CARD - matches welcome page aesthetic */
+        .auth-card {
+            background: #ffffff;
+            box-shadow: 0 20px 35px -14px rgba(17, 34, 58, 0.2), 0 2px 0 0 #ad8a4c inset;
+            border: 1px solid #e0e6ec;
+            border-radius: 0;
+            padding: 2rem;
+            width: 100%;
+            max-width: 480px;
+            margin: 2rem auto;
+            position: relative;
+            background-image: linear-gradient(165deg, #ffffff 0%, #fbfdff 100%);
+        }
+
+        /* HERITAGE GOLD ACCENTS */
+        .auth-title {
+            font-size: 1.75rem;
+            font-weight: 650;
+            color: #0c2d3f;
+            border-left: 6px solid #b68b50;
+            padding-left: 1.25rem;
+            margin-bottom: 1.75rem;
+            letter-spacing: -0.01em;
+        }
+
+        /* FORM LABELS */
+        .auth-label {
+            color: #2a4a5e;
+            font-weight: 550;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+
+        /* FORM INPUTS */
+        .auth-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #d4e0e8;
+            border-radius: 3px;
+            font-size: 1rem;
+            transition: all 0.15s ease;
+            background: #ffffff;
+            color: #0c2d3f;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: #b68b50;
+            box-shadow: 0 0 0 3px rgba(182, 139, 80, 0.08);
+        }
+
+        /* PRIMARY BUTTON - matches welcome page */
+        .auth-btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 2rem;
+            background: #0a3144;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            letter-spacing: 0.4px;
+            text-decoration: none;
+            border: 1px solid #1f4a5c;
+            border-radius: 3px;
+            box-shadow: 0 3px 0 #07222e, 0 6px 12px rgba(6, 35, 50, 0.08);
+            transition: all 0.12s;
+            gap: 8px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .auth-btn-primary:hover {
+            background: #155569;
+            border-color: #236b79;
+            box-shadow: 0 2px 0 #07222e, 0 10px 18px rgba(15, 55, 75, 0.12);
+            transform: translateY(-1px);
+        }
+
+        /* SECONDARY / TEXT LINKS - matches create account style */
+        .auth-link {
+            color: #0a4b62;
+            font-weight: 650;
+            text-decoration: none;
+            border-bottom: 2px solid #e7c584;
+            padding-bottom: 2px;
+            transition: all 0.18s ease;
+            letter-spacing: 0.3px;
+        }
+
+        .auth-link:hover {
+            color: #00263b;
+            border-bottom-color: #b48b4a;
+        }
+
+        /* CHECKBOX STYLING */
+        .auth-checkbox {
+            border-radius: 2px;
+            border: 1px solid #cbd7e3;
+            color: #0a4b62;
+            accent-color: #b68b50;
+        }
+
+        .auth-checkbox:checked {
+            background-color: #b68b50;
+            border-color: #b68b50;
+        }
+
+        /* ERROR MESSAGES */
+        .auth-error {
+            color: #b53b3b;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            padding-left: 0.75rem;
+            border-left: 3px solid #b53b3b;
+        }
+
+        /* STATUS MESSAGES (for verification, reset) */
+        .auth-status {
+            background: rgba(182, 139, 80, 0.06);
+            border-left: 4px solid #b68b50;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            color: #2a4a5e;
+        }
+
+        /* FOOTER NOTE - matches welcome page */
+        .auth-footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dae5ec;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #5e7c8b;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            width: 100%;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* LOGO ROW - small version for auth pages */
+        .auth-logo-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            padding-top: 1.5rem;
+            padding-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .auth-logo {
+            height: 60px;
+            width: auto;
+            object-fit: contain;
+            opacity: 0.9;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .auth-logo:hover {
+            border-bottom-color: #b48b4a;
+            transform: translateY(-2px);
+        }
+
+        /* PAGE LAYOUT - centers everything */
+        .auth-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 640px) {
+            .auth-card {
+                padding: 1.5rem;
+                margin: 1rem;
+            }
+            
+            .auth-logo {
+                height: 50px;
+            }
+            
+            .auth-logo-row {
+                gap: 1.5rem;
+            }
+        }
+
+        @media (max-height: 700px) {
+            .auth-logo {
+                height: 50px;
+            }
+            
+            .auth-logo-row {
+                padding-top: 0.75rem;
+            }
+            
+            .auth-card {
+                padding: 1.25rem;
+            }
+        }

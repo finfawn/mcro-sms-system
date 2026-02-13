@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class SmsTemplate extends Model
 {
     protected $fillable = [
-        'code',
-        'name',
-        'body',
+        'service_type',
+        'event_key',
+        'template_body',
         'is_active',
     ];
 }

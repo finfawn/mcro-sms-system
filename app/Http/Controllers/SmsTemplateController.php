@@ -12,57 +12,29 @@ class SmsTemplateController extends Controller
 {
     public function index(): View
     {
-        $templates = SmsTemplate::orderBy('name')->get();
-        return view('templates.index', compact('templates'));
-    }
-
-    public function create(): View
-    {
-        return view('templates.create');
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'code' => ['required', 'string', 'max:32', 'unique:sms_templates,code'],
-            'name' => ['required', 'string', 'max:120'],
-            'body' => ['required', 'string'],
-            'is_active' => ['nullable', 'boolean'],
+        $grouped = SmsTemplate::orderBy('service_type')
+            ->orderBy('event_key')
+            ->get()
+            ->groupBy('service_type');
+        $current = request('service_type');
+        $currentTemplates = $current ? ($grouped[$current] ?? collect()) : collect();
+        return view('sms_templates.index', [
+            'grouped' => $grouped,
+            'current' => $current,
+            'currentTemplates' => $currentTemplates,
         ]);
-        SmsTemplate::create([
-            'code' => $validated['code'],
-            'name' => $validated['name'],
-            'body' => $validated['body'],
-            'is_active' => (bool)($validated['is_active'] ?? true),
-        ]);
-        return redirect()->route('templates.index')->with('status', 'Template created');
-    }
-
-    public function edit(SmsTemplate $template): View
-    {
-        return view('templates.edit', compact('template'));
     }
 
     public function update(Request $request, SmsTemplate $template): RedirectResponse
     {
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:32', 'unique:sms_templates,code,'.$template->id],
-            'name' => ['required', 'string', 'max:120'],
-            'body' => ['required', 'string'],
+            'template_body' => ['required', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
         $template->update([
-            'code' => $validated['code'],
-            'name' => $validated['name'],
-            'body' => $validated['body'],
+            'template_body' => $validated['template_body'],
             'is_active' => (bool)($validated['is_active'] ?? true),
         ]);
-        return redirect()->route('templates.index')->with('status', 'Template updated');
-    }
-
-    public function destroy(SmsTemplate $template): RedirectResponse
-    {
-        $template->delete();
-        return redirect()->route('templates.index')->with('status', 'Template deleted');
+        return redirect()->route('sms-templates.index', ['service_type' => $template->service_type])->with('status', 'Template updated');
     }
 }

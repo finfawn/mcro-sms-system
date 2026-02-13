@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+
+        <title>{{ config('app.name', 'Laravel') }}</title>
+
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+
+        <!-- Scripts -->
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    </head>
+    <body class="font-sans antialiased">
+        <div class="min-h-screen bg-gray-100">
+            @include('layouts.navigation')
+
+            <!-- Page Heading -->
+            @isset($header)
+                <header class="bg-white shadow-sm">
+                    <div class="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
+                        {{ $header }}
+                    </div>
+                </header>
+            @endisset
+
+            <!-- Page Content -->
+            <main>
+                {{ $slot }}
+            </main>
+        </div>
+
+        <div class="fixed bottom-4 right-4 space-y-2">
+            @if(session('status'))
+                <div id="twToast" class="flex items-center gap-3 bg-blue-600 text-white rounded-md shadow px-4 py-3">
+                    <div class="flex-1 text-sm">{{ session('status') }}</div>
+                    @if(session('undo_id'))
+                        <form id="undoForm" action="{{ route('services.restore', session('undo_id')) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" class="text-blue-600 bg-white hover:bg-gray-100 rounded px-2 py-1 text-xs">Undo</button>
+                        </form>
+                    @endif
+                    <button id="twToastClose" type="button" class="text-white/90 hover:text-white text-sm">✕</button>
+                </div>
+            @endif
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                var toastEl = document.getElementById('twToast');
+                var closeBtn = document.getElementById('twToastClose');
+                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                var undoForm = document.getElementById('undoForm');
+                var undoClicked = false;
+                if (undoForm) {
+                    undoForm.addEventListener('submit', function(){ undoClicked = true; });
+                }
+                if (toastEl) {
+                    var hide = function(){ toastEl.style.display = 'none'; };
+                    if (closeBtn) closeBtn.addEventListener('click', hide);
+                    setTimeout(function(){
+                        hide();
+                        @if(session('undo_id'))
+                        if (!undoClicked && csrf) {
+                            fetch("{{ route('services.force-delete', session('undo_id')) }}", {
+                                method: "POST",
+                                headers: {
+                                    "X-CSRF-TOKEN": csrf,
+                                    "Accept": "application/json"
+                                }
+                            });
+                        }
+                        @endif
+                    }, 5000);
+                }
+            });
+        </script>
+    </body>
+</html>

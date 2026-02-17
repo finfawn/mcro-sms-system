@@ -12,4 +12,7 @@ class SmsTemplate extends Model
         'template_body',
         'is_active',
     ];
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
 }

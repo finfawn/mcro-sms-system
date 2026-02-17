@@ -1,4 +1,4 @@
-<nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
+<nav x-data="{ open: false }" class="bg-white border-b border-gray-100 sticky top-0 z-50">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
@@ -13,10 +13,10 @@
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     <x-nav-link :href="route('services.index')" :active="request()->routeIs('services.*')">
-                        {{ __('Services') }}
+                        {{ __('FrontlineServices') }}
                     </x-nav-link>
                     <x-nav-link :href="route('sms-templates.index')" :active="request()->routeIs('sms-templates.*')">
-                        {{ __('SMS Templates') }}
+                        {{ __('SMS Settings') }}
                     </x-nav-link>
                 </div>
             </div>

@@ -21,71 +21,31 @@
                                 @error('mobile_number')<div class="text-sm text-red-600 mt-1">{{ $message }}</div>@enderror
                             </div>
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                                <select name="category" class="border-gray-300 rounded-md w-full" id="category">
-                                    <option value="">Select category</option>
-                                    @foreach($categories as $c)
-                                        <option value="{{ $c }}" @selected(old('category')===$c)>{{ $c }}</option>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+                                <select name="service_type" class="border-gray-300 rounded-md w-full" id="service_type">
+                                    <option value="">Select type</option>
+                                    @php($types = [
+                                        'Application for Marriage License',
+                                        'Delayed Registration',
+                                        'Petition',
+                                        'Legal Instrument - Legitimation',
+                                        'Supplemental Report',
+                                        'BREQS',
+                                    ])
+                                    @foreach($types as $t)
+                                        <option value="{{ $t }}" @selected(old('service_type')===$t)>{{ $t }}</option>
                                     @endforeach
                                 </select>
-                                @error('category')<div class="text-sm text-red-600 mt-1">{{ $message }}</div>@enderror
-                            </div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
-                                <select name="service_type" class="border-gray-300 rounded-md w-full" id="service_type"></select>
                                 @error('service_type')<div class="text-sm text-red-600 mt-1">{{ $message }}</div>@enderror
                             </div>
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-                                <textarea name="remarks" class="border-gray-300 rounded-md w-full" rows="3">{{ old('remarks') }}</textarea>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                                <textarea name="notes" class="border-gray-300 rounded-md w-full" rows="3">{{ old('notes') }}</textarea>
                             </div>
                             <div>
                                 <button type="submit" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Submit</button>
                             </div>
                         </form>
-                        <script>
-                            document.addEventListener('DOMContentLoaded', function () {
-                                var categorySelect = document.getElementById('category');
-                                var serviceTypeSelect = document.getElementById('service_type');
-                                var endorsements = ['Blurred','Negative','2010.04','Supplemental','Legitimation','Court Order'];
-                                var naOnly = ['N/A'];
-
-                                function setOptions(types, selected) {
-                                    serviceTypeSelect.innerHTML = '';
-                                    var placeholder = document.createElement('option');
-                                    placeholder.value = '';
-                                    placeholder.textContent = 'Select type';
-                                    serviceTypeSelect.appendChild(placeholder);
-                                    types.forEach(function (t) {
-                                        var opt = document.createElement('option');
-                                        opt.value = t;
-                                        opt.textContent = t;
-                                        serviceTypeSelect.appendChild(opt);
-                                    });
-                                    if (selected && types.indexOf(selected) !== -1) {
-                                        serviceTypeSelect.value = selected;
-                                    } else if (types.length === 1) {
-                                        serviceTypeSelect.value = types[0];
-                                    }
-                                }
-
-                                function updateTypes() {
-                                    var cat = categorySelect.value;
-                                    var oldType = serviceTypeSelect.getAttribute('data-old') || '';
-                                    if (cat === 'Endorsements') {
-                                        setOptions(endorsements, oldType);
-                                    } else if (cat) {
-                                        setOptions(naOnly, oldType);
-                                    } else {
-                                        setOptions([], oldType);
-                                    }
-                                }
-
-                                serviceTypeSelect.setAttribute('data-old', {!! json_encode(old('service_type')) !!});
-                                updateTypes();
-                                categorySelect.addEventListener('change', updateTypes);
-                            });
-                        </script>
             </div>
         </div>
     </div>

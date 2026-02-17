@@ -20,7 +20,7 @@
 
             <!-- Page Heading -->
             @isset($header)
-                <header class="bg-white shadow-sm">
+                <header class="bg-white shadow-sm sticky top-16 z-40 border-b border-gray-200">
                     <div class="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
@@ -33,9 +33,36 @@
             </main>
         </div>
 
+        <style>
+            .tw-toast {
+                transform: translateY(8px);
+                opacity: 0;
+                transition: transform 220ms ease, opacity 220ms ease;
+                will-change: transform, opacity;
+            }
+            .tw-toast.tw-in {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            .tw-toast.tw-out {
+                transform: translateY(8px);
+                opacity: 0;
+            }
+            .tw-pressable {
+                transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease;
+            }
+            .tw-pressable:active {
+                transform: scale(0.98);
+            }
+            tr.tw-row-out {
+                opacity: 0;
+                transform: translateY(6px);
+                transition: opacity 170ms ease, transform 170ms ease;
+            }
+        </style>
         <div class="fixed bottom-4 right-4 space-y-2">
             @if(session('status'))
-                <div id="twToast" class="flex items-center gap-3 bg-blue-600 text-white rounded-md shadow px-4 py-3">
+                <div id="twToast" class="tw-toast flex items-center gap-3 bg-blue-600 text-white rounded-md shadow px-4 py-3">
                     <div class="flex-1 text-sm">{{ session('status') }}</div>
                     @if(session('undo_id'))
                         <form id="undoForm" action="{{ route('services.restore', session('undo_id')) }}" method="POST" class="inline">
@@ -56,27 +83,107 @@
                 var undoForm = document.getElementById('undoForm');
                 var undoClicked = false;
                 if (undoForm) {
-                    undoForm.addEventListener('submit', function(){ undoClicked = true; });
+                    undoForm.addEventListener('submit', function(e){
+                        undoClicked = true;
+                        e.preventDefault();
+                        if (!csrf) return;
+                        fetch(undoForm.action, {
+                            method: 'POST',
+                            headers: { "X-CSRF-TOKEN": csrf, "Accept": "text/html" }
+                        }).then(function(){
+                            if (window.updateServicesTable) {
+                                window.updateServicesTable();
+                            } else {
+                                location.href = "{{ route('services.index') }}";
+                            }
+                            var toastEl2 = document.getElementById('twToast');
+                            if (toastEl2) {
+                                toastEl2.classList.remove('tw-in');
+                                toastEl2.classList.add('tw-out');
+                                toastEl2.addEventListener('transitionend', function te(){
+                                    toastEl2.removeEventListener('transitionend', te);
+                                    toastEl2.style.display = 'none';
+                                }, { once: true });
+                            }
+                        });
+                    });
                 }
                 if (toastEl) {
-                    var hide = function(){ toastEl.style.display = 'none'; };
-                    if (closeBtn) closeBtn.addEventListener('click', hide);
+                    requestAnimationFrame(function(){ toastEl.classList.add('tw-in'); });
+                    var animateOut = function(cb){
+                        toastEl.classList.remove('tw-in');
+                        toastEl.classList.add('tw-out');
+                        toastEl.addEventListener('transitionend', function te(){
+                            toastEl.removeEventListener('transitionend', te);
+                            toastEl.style.display = 'none';
+                            if (typeof cb === 'function') cb();
+                        }, { once: true });
+                    };
+                    if (closeBtn) closeBtn.addEventListener('click', function(){
+                        animateOut(function(){
+                            @if(session('undo_id'))
+                            if (!undoClicked && csrf) {
+                                fetch("{{ route('services.force-delete', session('undo_id')) }}", {
+                                    method: "POST",
+                                    headers: {
+                                        "X-CSRF-TOKEN": csrf,
+                                        "Accept": "application/json"
+                                    }
+                                });
+                            }
+                            @endif
+                        });
+                    });
                     setTimeout(function(){
-                        hide();
-                        @if(session('undo_id'))
-                        if (!undoClicked && csrf) {
-                            fetch("{{ route('services.force-delete', session('undo_id')) }}", {
-                                method: "POST",
-                                headers: {
-                                    "X-CSRF-TOKEN": csrf,
-                                    "Accept": "application/json"
-                                }
-                            });
-                        }
-                        @endif
+                        animateOut(function(){
+                            @if(session('undo_id'))
+                            if (!undoClicked && csrf) {
+                                fetch("{{ route('services.force-delete', session('undo_id')) }}", {
+                                    method: "POST",
+                                    headers: {
+                                        "X-CSRF-TOKEN": csrf,
+                                        "Accept": "application/json"
+                                    }
+                                });
+                            }
+                            @endif
+                        });
                     }, 5000);
                 }
             });
+        </script>
+        <script>
+            window.twShowToast = function (msg) {
+                var wrap = document.querySelector('.fixed.bottom-4.right-4.space-y-2');
+                if (!wrap) {
+                    wrap = document.createElement('div');
+                    wrap.className = 'fixed bottom-4 right-4 space-y-2';
+                    document.body.appendChild(wrap);
+                }
+                var el = document.createElement('div');
+                el.className = 'tw-toast flex items-center gap-3 bg-blue-600 text-white rounded-md shadow px-4 py-3';
+                var content = document.createElement('div');
+                content.className = 'flex-1 text-sm';
+                content.textContent = msg || '';
+                var close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'text-white/90 hover:text-white text-sm';
+                close.textContent = '✕';
+                el.appendChild(content);
+                el.appendChild(close);
+                wrap.appendChild(el);
+                requestAnimationFrame(function(){ el.classList.add('tw-in'); });
+                var hide = function(){
+                    el.classList.remove('tw-in');
+                    el.classList.add('tw-out');
+                    el.addEventListener('transitionend', function te(){
+                        el.removeEventListener('transitionend', te);
+                        el.remove();
+                    }, { once: true });
+                };
+                close.addEventListener('click', hide);
+                setTimeout(hide, 5000);
+            };
         </script>
     </body>
 </html>

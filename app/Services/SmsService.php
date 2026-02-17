@@ -10,7 +10,7 @@ class SmsService
 {
     public function send(Service $service, string $event_key): void
     {
-        $template = SmsTemplate::where('service_type', $this->normalizeType($service->service_type))
+        $template = SmsTemplate::where('service_type', $service->service_type)
             ->where('event_key', $event_key)
             ->where('is_active', true)
             ->first();
@@ -26,14 +26,15 @@ class SmsService
             'service_id' => $service->id,
             'event_key' => $event_key,
         ]);
+
+        // Output to console for testing visibility
+        $consoleMsg = "\n----------------------------------------\n" .
+                      "SMS SIMULATION\n" .
+                      "To: " . $service->mobile_number . "\n" .
+                      "Message: " . $body . "\n" .
+                      "----------------------------------------\n";
+        file_put_contents('php://stderr', $consoleMsg);
     }
 
-    private function normalizeType(string $type): string
-    {
-        $t = strtolower(trim($type));
-        $map = [
-            'application for marriage license' => 'application_for_marriage_license',
-        ];
-        return $map[$t] ?? str_replace(' ', '_', $t);
-    }
+    
 }

@@ -12,7 +12,6 @@ return new class extends Migration {
             $table->string('reference_no')->unique();
             $table->string('citizen_name');
             $table->string('mobile_number');
-            $table->string('category');
             $table->string('service_type');
             $table->string('status')->default('Filed');
             $table->text('remarks')->nullable();

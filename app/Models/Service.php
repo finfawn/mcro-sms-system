@@ -12,23 +12,28 @@ class Service extends Model
 
     protected $fillable = [
         'reference_no',
+        'registration_number',
         'citizen_name',
         'mobile_number',
-        'category',
         'service_type',
         'status',
-        'remarks',
+        'notes',
         'payment_date',
         'posting_start_date',
         'release_date',
         'sms_posting_sent',
-        'sms_release_sent',
+        'sms_ready_sent',
     ];
     protected $casts = [
         'payment_date' => 'date',
         'posting_start_date' => 'date',
         'release_date' => 'date',
         'sms_posting_sent' => 'boolean',
-        'sms_release_sent' => 'boolean',
+        'sms_ready_sent' => 'boolean',
     ];
+
+    public function statusLogs()
+    {
+        return $this->hasMany(ServiceStatusLog::class)->orderBy('created_at', 'asc');
+    }
 }

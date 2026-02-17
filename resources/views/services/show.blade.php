@@ -33,10 +33,6 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <div class="text-sm font-medium text-gray-500">Category</div>
-                        <div class="text-gray-900">{{ $service->category }}</div>
-                    </div>
-                    <div>
                         <div class="text-sm font-medium text-gray-500">Service Type</div>
                         <div class="text-gray-900">{{ $service->service_type }}</div>
                     </div>
@@ -52,8 +48,8 @@
                     </div>
                 </div>
                 <div>
-                    <div class="text-sm font-medium text-gray-500">Remarks</div>
-                    <div class="border rounded-md p-2 bg-gray-50 text-gray-900">{{ $service->remarks ?? '—' }}</div>
+                    <div class="text-sm font-medium text-gray-500">Notes</div>
+                    <div class="border rounded-md p-2 bg-gray-50 text-gray-900">{{ $service->notes ?? '—' }}</div>
                 </div>
             </div>
         </div>

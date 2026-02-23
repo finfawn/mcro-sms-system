@@ -5,36 +5,94 @@ namespace App\Services;
 use App\Models\Service;
 use App\Models\SmsTemplate;
 use Illuminate\Support\Facades\Log;
+use App\Services\Sms\Contracts\SmsProvider;
+use App\Services\Sms\Providers\LogSmsProvider;
+use App\Services\Sms\Providers\ItexmoSmsProvider;
+use App\Services\Sms\Providers\ClickSendSmsProvider;
+use Illuminate\Support\Arr;
 
 class SmsService
 {
+    protected SmsProvider $provider;
+
+    public function __construct()
+    {
+        $provider = config('sms.provider', 'log');
+        if ($provider === 'clicksend') {
+            $cfg = config('sms.clicksend', []);
+            $username = Arr::get($cfg, 'username');
+            $apiKey = Arr::get($cfg, 'api_key');
+            $from = Arr::get($cfg, 'from');
+            $this->provider = new ClickSendSmsProvider($username, $apiKey, $from);
+        } elseif ($provider === 'itexmo') {
+            $cfg = config('sms.itexmo', []);
+            $code = Arr::get($cfg, 'api_code');
+            $password = Arr::get($cfg, 'password');
+            $email = Arr::get($cfg, 'email');
+            $sender = Arr::get($cfg, 'sender');
+            $this->provider = new ItexmoSmsProvider($code, $password, $sender, $email);
+        } else {
+            $this->provider = new LogSmsProvider();
+        }
+    }
+
     public function send(Service $service, string $event_key): void
     {
         $template = SmsTemplate::where('service_type', $service->service_type)
             ->where('event_key', $event_key)
             ->where('is_active', true)
             ->first();
-        if (!$template) {
+        $body = $template ? $template->template_body : $this->fallbackBody($service, $event_key);
+        if (!$body) {
             return;
         }
-        $body = $template->template_body;
         $body = str_replace('{{citizen_name}}', $service->citizen_name, $body);
         $body = str_replace('{{reference_no}}', $service->reference_no, $body);
-        Log::info('SMS prepared', [
-            'to' => $service->mobile_number,
-            'message' => $body,
-            'service_id' => $service->id,
-            'event_key' => $event_key,
-        ]);
-
-        // Output to console for testing visibility
-        $consoleMsg = "\n----------------------------------------\n" .
-                      "SMS SIMULATION\n" .
-                      "To: " . $service->mobile_number . "\n" .
-                      "Message: " . $body . "\n" .
-                      "----------------------------------------\n";
-        file_put_contents('php://stderr', $consoleMsg);
+        try {
+            $to = $this->normalizeRecipient($service->mobile_number);
+            $this->provider->send($to, $body);
+            Log::info('SMS sent', [
+                'to' => $to,
+                'service_id' => $service->id,
+                'event_key' => $event_key,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('SMS send failed', [
+                'to' => $service->mobile_number,
+                'service_id' => $service->id,
+                'event_key' => $event_key,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
-    
+    protected function normalizeRecipient(string $to): string
+    {
+        $t = trim($to);
+        if (str_starts_with($t, '+')) {
+            return $t;
+        }
+        $digits = preg_replace('/\D+/', '', $t);
+        if (str_starts_with($digits, '63')) {
+            return '+' . $digits;
+        }
+        if (str_starts_with($digits, '0')) {
+            return '+63' . substr($digits, 1);
+        }
+        return '+' . $digits;
+    }
+
+    protected function fallbackBody(Service $service, string $event_key): ?string
+    {
+        if ($service->service_type === 'Application for Marriage License') {
+            if ($event_key === 'posting_notice') {
+                return 'Your Application for Marriage License has been posted today. Your Marriage License shall be issued after the 10 days posting of the notice.';
+            }
+            if ($event_key === 'releasing') {
+                return 'Good day! Your Marriage License is now available for release. Please claim it at the MCRO office during office hours.';
+            }
+        }
+        return null;
+    }
 }
+    

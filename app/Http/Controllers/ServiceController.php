@@ -13,10 +13,23 @@ use Illuminate\View\View;
 class ServiceController extends Controller
 {
     protected AutomationEngine $automation;
+    protected SmsService $sms;
+    protected function statusesForType(string $type): array
+    {
+        $default = ['Filed','Processing','Endorsed','Released','Rejected'];
+        if ($type === 'Application for Marriage License') {
+            return ['Filed','Paid','Posted','Released'];
+        }
+        if ($type === 'Delayed Registration') {
+            return ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'];
+        }
+        return $default;
+    }
 
-    public function __construct(AutomationEngine $automation)
+    public function __construct(AutomationEngine $automation, SmsService $sms)
     {
         $this->automation = $automation;
+        $this->sms = $sms;
     }
 
     public function index(Request $request): View
@@ -127,7 +140,11 @@ class ServiceController extends Controller
 
     public function edit(Service $service): View
     {
-        return view('services.edit', compact('service'));
+        $statuses = $this->statusesForType($service->service_type);
+        return view('services.edit', [
+            'service' => $service,
+            'statuses' => $statuses,
+        ]);
     }
 
     public function update(Request $request, Service $service): RedirectResponse
@@ -165,15 +182,14 @@ class ServiceController extends Controller
             $service->save();
         }
         if ($validated['service_type'] === 'Delayed Registration') {
-            $sms = new SmsService();
             if ($previousStatus !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                $sms->send($service, 'verification_started');
+                $this->sms->send($service, 'verification_started');
             }
             if ($previousStatus !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                $sms->send($service, 'requirements_incomplete');
+                $this->sms->send($service, 'requirements_incomplete');
             }
             if ($previousStatus !== 'Consistent' && $validated['status'] === 'Consistent') {
-                $sms->send($service, 'verification_consistent');
+                $this->sms->send($service, 'verification_consistent');
             }
         }
         if (
@@ -183,7 +199,7 @@ class ServiceController extends Controller
             !$service->sms_posting_sent
         ) {
             $service->posting_start_date = now()->toDateString();
-            (new SmsService())->send($service, 'posting_notice');
+            $this->sms->send($service, 'posting_notice');
             $service->sms_posting_sent = true;
             $service->save();
         }
@@ -224,7 +240,16 @@ class ServiceController extends Controller
         $validated = $request->validate([
             'status' => ['required', 'string', 'max:50'],
         ]);
+        $allowed = $this->statusesForType($service->service_type);
+        if (!in_array($validated['status'], $allowed, true)) {
+            return redirect()->route('services.index')->with('status', 'Status not allowed for '.$service->service_type);
+        }
         $prev = $service->status;
+        $idxPrev = array_search($prev, $allowed);
+        $idxNew = array_search($validated['status'], $allowed);
+        if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {
+            return redirect()->route('services.index')->with('status', 'Cannot move back in status');
+        }
         $service->update(['status' => $validated['status']]);
         if ($prev !== $validated['status']) {
             ServiceStatusLog::create([
@@ -242,15 +267,14 @@ class ServiceController extends Controller
             $service->save();
         }
         if ($service->service_type === 'Delayed Registration') {
-            $sms = new SmsService();
             if ($prev !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                $sms->send($service, 'verification_started');
+                $this->sms->send($service, 'verification_started');
             }
             if ($prev !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                $sms->send($service, 'requirements_incomplete');
+                $this->sms->send($service, 'requirements_incomplete');
             }
             if ($prev !== 'Consistent' && $validated['status'] === 'Consistent') {
-                $sms->send($service, 'verification_consistent');
+                $this->sms->send($service, 'verification_consistent');
             }
         }
         if (
@@ -260,7 +284,7 @@ class ServiceController extends Controller
             !$service->sms_posting_sent
         ) {
             $service->posting_start_date = now()->toDateString();
-            (new SmsService())->send($service, 'posting_notice');
+            $this->sms->send($service, 'posting_notice');
             $service->sms_posting_sent = true;
             $service->save();
         }
@@ -277,8 +301,21 @@ class ServiceController extends Controller
             'status' => ['required', 'string', 'max:50'],
         ]);
         $services = Service::whereIn('id', $validated['ids'])->get();
+        $updatedCount = 0;
+        $skippedCount = 0;
         foreach ($services as $svc) {
+            $allowed = $this->statusesForType($svc->service_type);
+            if (!in_array($validated['status'], $allowed, true)) {
+                $skippedCount++;
+                continue;
+            }
             $prevStatus = $svc->status;
+            $idxPrev = array_search($prevStatus, $allowed);
+            $idxNew = array_search($validated['status'], $allowed);
+            if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {
+                $skippedCount++;
+                continue;
+            }
             $svc->update(['status' => $validated['status']]);
             if ($prevStatus !== $validated['status']) {
                 ServiceStatusLog::create([
@@ -296,15 +333,14 @@ class ServiceController extends Controller
                 $svc->save();
             }
             if ($svc->service_type === 'Delayed Registration') {
-                $sms = new SmsService();
                 if ($prevStatus !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                    $sms->send($svc, 'verification_started');
+                    $this->sms->send($svc, 'verification_started');
                 }
                 if ($prevStatus !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                    $sms->send($svc, 'requirements_incomplete');
+                    $this->sms->send($svc, 'requirements_incomplete');
                 }
                 if ($prevStatus !== 'Consistent' && $validated['status'] === 'Consistent') {
-                    $sms->send($svc, 'verification_consistent');
+                    $this->sms->send($svc, 'verification_consistent');
                 }
             }
             if (
@@ -314,15 +350,16 @@ class ServiceController extends Controller
                 !$svc->sms_posting_sent
             ) {
                 $svc->posting_start_date = now()->toDateString();
-                (new SmsService())->send($svc, 'posting_notice');
+                $this->sms->send($svc, 'posting_notice');
                 $svc->sms_posting_sent = true;
                 $svc->save();
             }
+            $updatedCount++;
         }
         // Apply automation rules after bulk updates
         foreach ($services as $svc) {
             $this->automation->handleStatusChange($svc);
         }
-        return redirect()->route('services.index')->with('status', 'Status updated for selected entries');
+        return redirect()->route('services.index')->with('status', 'Updated: '.$updatedCount.'. Skipped: '.$skippedCount);
     }
 }

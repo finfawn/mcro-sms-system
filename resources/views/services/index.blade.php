@@ -280,10 +280,9 @@
     
     <div id="bulkContextMenu" class="bg-white border rounded shadow-sm text-sm" style="position:fixed; display:none; z-index:1000; min-width: 200px;">
         <div class="px-3 py-2 text-gray-500">Set status</div>
-        @foreach($defaultStatuses as $st)
-            <button type="button" class="w-full text-left px-3 py-1 hover:bg-gray-100 context-action" data-status="{{ $st }}">{{ $st }}</button>
-        @endforeach
+        <div id="bulkActions"></div>
         <div class="px-3 py-2 text-gray-500 hidden" id="noSelectionNote">Select rows first</div>
+        <div class="px-3 py-2 text-gray-500 hidden" id="noCommonNote">No common statuses</div>
     </div>
     
     <script>
@@ -304,6 +303,8 @@
             var tableWrapper = document.getElementById('services_table_container') || document.querySelector('.table-responsive');
             var menu = document.getElementById('bulkContextMenu');
             var note = document.getElementById('noSelectionNote');
+            var noCommon = document.getElementById('noCommonNote');
+            var actions = document.getElementById('bulkActions');
             var bulkForm = document.getElementById('bulkContextForm');
             var statusField = document.getElementById('bulkContextStatus');
             
@@ -324,6 +325,45 @@
                     var hasSelection = selected.length > 0;
                     
                     note.classList.toggle('hidden', hasSelection);
+                    noCommon.classList.add('hidden');
+                    while (actions.firstChild) actions.removeChild(actions.firstChild);
+                    if (hasSelection) {
+                        var types = selected.map(function(cb){ 
+                            var tr = cb.closest('tr'); 
+                            return tr ? tr.dataset.type : ''; 
+                        }).filter(function(t){ return !!t; });
+                        var lists = types.map(function(t){ return STATUS_MAP[t] || DEFAULT_STATUSES; });
+                        var common = lists.length ? lists[0].slice() : [];
+                        for (var i=1;i<lists.length;i++){
+                            common = common.filter(function(x){ return lists[i].indexOf(x) !== -1; });
+                        }
+                        if (common.length) {
+                            common.forEach(function(s){
+                                var btn = document.createElement('button');
+                                btn.type = 'button';
+                                btn.className = 'w-full text-left px-3 py-1 hover:bg-gray-100 context-action';
+                                btn.setAttribute('data-status', s);
+                                btn.textContent = s;
+                                btn.addEventListener('click', function(){
+                                    var existing = bulkForm.querySelectorAll('input[name=\"ids[]\"]');
+                                    existing.forEach(function(el){ el.remove(); });
+                                    selected.forEach(function(cb){
+                                        var hidden = document.createElement('input');
+                                        hidden.type = 'hidden';
+                                        hidden.name = 'ids[]';
+                                        hidden.value = cb.value;
+                                        bulkForm.appendChild(hidden);
+                                    });
+                                    statusField.value = s;
+                                    bulkForm.submit();
+                                    hideMenu();
+                                });
+                                actions.appendChild(btn);
+                            });
+                        } else {
+                            noCommon.classList.remove('hidden');
+                        }
+                    }
                     
                     var x = e.clientX;
                     var y = e.clientY;
@@ -336,33 +376,7 @@
                 });
             }
             
-            var actionButtons = document.querySelectorAll('.context-action');
-            actionButtons.forEach(function(btn){
-                btn.addEventListener('click', function(){
-                    var selected = Array.prototype.slice.call(document.querySelectorAll('.row-select:checked'));
-                    
-                    if (selected.length === 0) {
-                        return;
-                    }
-                    
-                    var existing = bulkForm.querySelectorAll('input[name="ids[]"]');
-                    existing.forEach(function(el) { 
-                        el.remove(); 
-                    });
-                    
-                    selected.forEach(function(cb){
-                        var hidden = document.createElement('input');
-                        hidden.type = 'hidden';
-                        hidden.name = 'ids[]';
-                        hidden.value = cb.value;
-                        bulkForm.appendChild(hidden);
-                    });
-                    
-                    statusField.value = btn.getAttribute('data-status');
-                    bulkForm.submit();
-                    hideMenu();
-                });
-            });
+            // buttons are bound dynamically above
             rebindRowClicks();
             var typeSelect = document.getElementById('filter_service_type');
             var statusSelect = document.getElementById('filter_status');

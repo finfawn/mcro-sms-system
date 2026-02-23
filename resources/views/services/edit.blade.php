@@ -41,28 +41,8 @@
                             </div>
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                @php
-                                    $serviceType = old('service_type', $service->service_type);
-                                    
-                                    // Default statuses for most services
-                                    $defaultStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
-                                    
-                                    // Specific statuses for Marriage License
-                                    $mlStatuses = ['Filed','Paid','Posted','Released'];
-                                    
-                                    // Specific statuses for Delayed Registration (supporting TenDayPostingRule)
-                                    $drStatuses = ['Filed','Posted','Ready for Release','Released','Rejected'];
-
-                                    if ($serviceType === 'Application for Marriage License') {
-                                        $statuses = $mlStatuses;
-                                    } elseif ($serviceType === 'Delayed Registration') {
-                                        $statuses = $drStatuses;
-                                    } else {
-                                        $statuses = $defaultStatuses;
-                                    }
-                                @endphp
                                 <select name="status" class="border-gray-300 rounded-md w-full">
-                                    @foreach($statuses as $st)
+                                    @foreach(($statuses ?? []) as $st)
                                         <option value="{{ $st }}" @selected(old('status', $service->status)===$st)>{{ $st }}</option>
                                     @endforeach
                                 </select>

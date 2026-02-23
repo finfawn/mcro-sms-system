@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SmsTemplateController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 Route::get('/', function () {
     return view('welcome');
@@ -37,3 +38,9 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// ClickSend Delivery Report webhook (public)
+Route::match(['POST'], '/webhooks/clicksend', function (Request $request) {
+    \Log::info('ClickSend Delivery Report', $request->all());
+    return response()->json(['ok' => true]);
+});

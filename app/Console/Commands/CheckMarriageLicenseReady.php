@@ -36,7 +36,7 @@ class CheckMarriageLicenseReady extends Command
             ->whereDate('posting_start_date', '<=', $todayMinus10->toDateString())
             ->where('sms_ready_sent', false)
             ->get();
-        $sms = new SmsService();
+        $sms = app(SmsService::class);
         foreach ($services as $service) {
             $sms->send($service, 'releasing');
             $service->sms_ready_sent = true;

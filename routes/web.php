@@ -31,6 +31,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/services/{id}/restore', [ServiceController::class, 'restore'])->name('services.restore');
     Route::post('/services/{id}/force-delete', [ServiceController::class, 'forceDelete'])->name('services.force-delete');
 
+    Route::get('/services/bulk-upload', [ServiceController::class, 'bulkUploadForm'])->name('services.bulk-upload.form');
+    Route::post('/services/bulk-upload', [ServiceController::class, 'bulkUploadStore'])->name('services.bulk-upload.store');
+    Route::get('/services/bulk-upload/template', [ServiceController::class, 'bulkUploadTemplate'])->name('services.bulk-upload.template');
     Route::get('/sms-templates', [SmsTemplateController::class, 'index'])->name('sms-templates.index');
     Route::put('/sms-templates/{template}', [SmsTemplateController::class, 'update'])->name('sms-templates.update');
 });

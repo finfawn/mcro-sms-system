@@ -269,6 +269,87 @@ class ServiceController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function bulkUploadForm(): View
+    {
+        $types = SmsTemplate::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
+        return view('services.bulk_upload', ['types' => $types]);
+    }
+    public function bulkUploadTemplate()
+    {
+        $content = "citizen_name,mobile_number,service_type,notes\n";
+        $content .= "Juan Dela Cruz,09171234567,Application for Marriage License,\n";
+        $content .= "Maria Santos,09181234567,Petitions filed under RA 9048 - Clerical Error,Needs assistance\n";
+        return response($content, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename=\"services_template.csv\"',
+        ]);
+    }
+    public function bulkUploadStore(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt'],
+        ]);
+        $file = $request->file('file');
+        $path = $file->getRealPath();
+        $fh = fopen($path, 'r');
+        $header = fgetcsv($fh);
+        $expected = ['citizen_name','mobile_number','service_type','notes'];
+        $map = [];
+        foreach ($expected as $col) {
+            $idx = array_search($col, $header ?? []);
+            if ($idx === false) {
+                return redirect()->route('services.bulk-upload.form')->with('status', 'Invalid CSV headers');
+            }
+            $map[$col] = $idx;
+        }
+        $types = SmsTemplate::select('service_type')->distinct()->pluck('service_type')->toArray();
+        $yy = now()->format('y');
+        $prefix = "CR{$yy}-";
+        $latest = Service::withTrashed()->where('reference_no', 'like', $prefix.'%')->orderBy('reference_no', 'desc')->first();
+        $seq = 1;
+        if ($latest) {
+            $parts = explode('-', $latest->reference_no);
+            $lastSeq = intval(end($parts));
+            $seq = $lastSeq + 1;
+        }
+        $created = 0;
+        $skipped = 0;
+        while (($row = fgetcsv($fh)) !== false) {
+            $name = trim($row[$map['citizen_name']] ?? '');
+            $mobile = trim($row[$map['mobile_number']] ?? '');
+            $stype = trim($row[$map['service_type']] ?? '');
+            $notes = trim($row[$map['notes']] ?? '');
+            if ($name === '' || $mobile === '' || $stype === '' || !in_array($stype, $types, true)) {
+                $skipped++;
+                continue;
+            }
+            $referenceNo = $prefix.str_pad((string) $seq, 6, '0', STR_PAD_LEFT);
+            while (Service::withTrashed()->where('reference_no', $referenceNo)->exists()) {
+                $seq++;
+                $referenceNo = $prefix.str_pad((string) $seq, 6, '0', STR_PAD_LEFT);
+            }
+            $seq++;
+            Service::create([
+                'reference_no' => $referenceNo,
+                'citizen_name' => $name,
+                'mobile_number' => $mobile,
+                'service_type' => $stype,
+                'status' => 'Filed',
+                'notes' => $notes !== '' ? $notes : null,
+            ]);
+            $svc = Service::where('reference_no', $referenceNo)->first();
+            if ($svc) {
+                ServiceStatusLog::create([
+                    'service_id' => $svc->id,
+                    'status' => 'Filed',
+                    'note' => null,
+                ]);
+            }
+            $created++;
+        }
+        fclose($fh);
+        return redirect()->route('services.index')->with('status', 'Bulk upload created: '.$created.'. Skipped: '.$skipped);
+    }
     public function scheduled(Request $request): View
     {
         $services = Service::with('statusLogs')->get();

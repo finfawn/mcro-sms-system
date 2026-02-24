@@ -1,9 +1,35 @@
 @props(['active'])
 
+<style>
+a.nav-text {
+    position: relative;
+    transition: color 180ms ease, letter-spacing 180ms ease;
+}
+a.nav-text::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 2px;
+    width: 0;
+    background: currentColor;
+    transition: width 180ms ease;
+}
+a.nav-text:hover {
+    letter-spacing: 0.2px;
+}
+a.nav-text:hover::after {
+    width: 100%;
+}
+a.nav-text.active::after {
+    width: 100%;
+}
+</style>
+
 @php
 $classes = ($active ?? false)
-            ? 'inline-flex items-center px-1 pt-1 border-b-2 border-indigo-400 text-sm font-medium leading-5 text-gray-900 focus:outline-none focus:border-indigo-700 transition duration-150 ease-in-out'
-            : 'inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:text-gray-700 focus:border-gray-300 transition duration-150 ease-in-out';
+            ? 'nav-text active inline-flex items-center px-1 pt-1 text-sm font-semibold leading-5 text-blue-700 focus:outline-none transition-colors duration-150 ease-out'
+            : 'nav-text inline-flex items-center px-1 pt-1 text-sm font-medium leading-5 text-gray-600 hover:text-blue-700 focus:outline-none transition-colors duration-150 ease-out';
 @endphp
 
 <a {{ $attributes->merge(['class' => $classes]) }}>

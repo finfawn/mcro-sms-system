@@ -13,4 +13,9 @@ return [
         'api_key' => env('CLICKSEND_API_KEY'),
         'from' => env('CLICKSEND_FROM'),
     ],
+    'textbee' => [
+        'base_url' => env('TEXTBEE_BASE_URL', 'https://api.textbee.dev'),
+        'device_id' => env('TEXTBEE_DEVICE_ID'),
+        'api_key' => env('TEXTBEE_API_KEY'),
+    ],
 ];

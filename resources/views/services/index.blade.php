@@ -28,6 +28,12 @@
                 $defaultStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
                 $mlStatuses = ['Filed','Paid','Posted','Released'];
                 $delayedStatuses = ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'];
+                $frontlineStatuses = ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
+                $endorsementStatuses = ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+                $endorsementBlurredStatuses = ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+                $endorsementLegalStatuses = ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+                $ra9048Statuses = ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
+                $ra9048_10172Statuses = ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Published','Decision Rendered','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
             @endphp
             
             <div class="bg-white border rounded-md mb-3">
@@ -122,6 +128,18 @@
                                     $rowStatuses = ['Filed','Paid','Posted','Released'];
                                 } elseif ($s->service_type === 'Delayed Registration') {
                                     $rowStatuses = $delayedStatuses;
+                                } elseif ($s->service_type === 'Frontline Service') {
+                                    $rowStatuses = $frontlineStatuses;
+                                } elseif ($s->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
+                                    $rowStatuses = $endorsementStatuses;
+                                } elseif ($s->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
+                                    $rowStatuses = $endorsementBlurredStatuses;
+                                } elseif ($s->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
+                                    $rowStatuses = $endorsementLegalStatuses;
+                                } elseif ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
+                                    $rowStatuses = $ra9048Statuses;
+                                } elseif ($s->service_type === 'Petitions filed under RA 9048 & RA 10172') {
+                                    $rowStatuses = $ra9048_10172Statuses;
                                 }
                                 $currentIndex = array_search($s->status, $rowStatuses);
                             @endphp
@@ -150,13 +168,29 @@
                                         @csrf
                                         @method('PUT')
                                         @php
-                                            $rowStatuses = $s->service_type === 'Application for Marriage License' ? $mlStatuses : $defaultStatuses;
+                                            $rowStatuses = $defaultStatuses;
+                                            if ($s->service_type === 'Application for Marriage License') {
+                                                $rowStatuses = $mlStatuses;
+                                            } elseif ($s->service_type === 'Delayed Registration') {
+                                                $rowStatuses = $delayedStatuses;
+                                            } elseif ($s->service_type === 'Frontline Service') {
+                                                $rowStatuses = $frontlineStatuses;
+                                            } elseif ($s->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
+                                                $rowStatuses = $endorsementStatuses;
+                                            } elseif ($s->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
+                                                $rowStatuses = $endorsementBlurredStatuses;
+                                            } elseif ($s->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
+                                                $rowStatuses = $endorsementLegalStatuses;
+                                            } elseif ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
+                                                $rowStatuses = $ra9048Statuses;
+                                            }
                                         @endphp
                                         <select name="status" class="border-gray-300 rounded-md text-sm px-2 py-1" onchange="this.form.submit()">
                                             @foreach($rowStatuses as $st)
                                                 @php
                                                     $idx = array_search($st, $rowStatuses);
-                                                    $disabled = ($idx !== false && $currentIndex !== false && $idx < $currentIndex);
+                                                    $disableBackwards = (!in_array($s->service_type, ['Endorsement for Negative PSA - Positive LCRO','Endorsement for Blurred PSA - Clear LCRO File','Endorsement of Legal Instrument & MC 2010-04 & Court Order','Petitions filed under RA 9048 - Clerical Error']));
+                                                    $disabled = $disableBackwards && ($idx !== false && $currentIndex !== false && $idx < $currentIndex);
                                                 @endphp
                                                 <option value="{{ $st }}" @selected($s->status === $st) @if($disabled) disabled @endif>{{ $st }}</option>
                                             @endforeach
@@ -385,7 +419,14 @@
             var tableContainer = document.getElementById('services_table_container');
             var STATUS_MAP = {
                 'Application for Marriage License': ['Filed','Paid','Posted','Released'],
-                'Delayed Registration': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected']
+                'Delayed Registration': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
+                'Frontline Service': ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'],
+                'Request for PSA documents through BREQS': ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'],
+                'Endorsement for Negative PSA - Positive LCRO': ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'],
+                'Endorsement for Blurred PSA - Clear LCRO File': ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'],
+                'Endorsement of Legal Instrument & MC 2010-04 & Court Order': ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'],
+                'Petitions filed under RA 9048 - Clerical Error': ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'],
+                'Petitions filed under RA 9048 & RA 10172': ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Published','Decision Rendered','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released']
             };
             var DEFAULT_STATUSES = ['Filed','Processing','Endorsed','Released','Rejected'];
             function populateStatuses(){

@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Service;
 use App\Models\ServiceStatusLog;
+use App\Models\SmsTemplate;
 use App\Services\SmsService;
 use App\Automation\AutomationEngine;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -22,6 +24,27 @@ class ServiceController extends Controller
         }
         if ($type === 'Delayed Registration') {
             return ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'];
+        }
+        if ($type === 'Frontline Service') {
+            return ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
+        }
+        if ($type === 'Request for PSA documents through BREQS') {
+            return ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
+        }
+        if ($type === 'Endorsement for Negative PSA - Positive LCRO') {
+            return ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+        }
+        if ($type === 'Endorsement for Blurred PSA - Clear LCRO File') {
+            return ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+        }
+        if ($type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
+            return ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+        }
+        if ($type === 'Petitions filed under RA 9048 - Clerical Error') {
+            return ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
+        }
+        if ($type === 'Petitions filed under RA 9048 & RA 10172') {
+            return ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Published','Decision Rendered','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
         }
         return $default;
     }
@@ -86,7 +109,8 @@ class ServiceController extends Controller
 
     public function create(): View
     {
-        return view('services.create');
+        $types = SmsTemplate::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
+        return view('services.create', ['types' => $types]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -193,6 +217,16 @@ class ServiceController extends Controller
             }
         }
         if (
+            $validated['service_type'] === 'Request for PSA documents through BREQS' &&
+            $previousStatus !== 'Ready for Pickup' &&
+            $validated['status'] === 'Ready for Pickup' &&
+            !$service->sms_ready_sent
+        ) {
+            $this->sms->send($service, 'ready_for_pickup');
+            $service->sms_ready_sent = true;
+            $service->save();
+        }
+        if (
             $validated['service_type'] === 'Application for Marriage License' &&
             $previousStatus !== 'Posted' &&
             $validated['status'] === 'Posted' &&
@@ -235,6 +269,152 @@ class ServiceController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function scheduled(Request $request): View
+    {
+        $services = Service::with('statusLogs')->get();
+        $items = [];
+        foreach ($services as $s) {
+            if ($s->service_type === 'Application for Marriage License') {
+                if ($s->posting_start_date) {
+                    $due = $s->posting_start_date->copy()->addDays(10);
+                    if (!$s->sms_ready_sent) {
+                        $items[] = [
+                            'due' => $due,
+                            'service' => $s,
+                            'label' => 'Releasing notice',
+                            'event' => 'releasing',
+                        ];
+                    }
+                }
+            }
+            if ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
+                if ($s->posting_start_date) {
+                    $due = $s->posting_start_date->copy()->addWeekdays(10);
+                    $items[] = [
+                        'due' => $due,
+                        'service' => $s,
+                        'label' => 'Posting ends (10 business days)',
+                        'event' => 'posting_end',
+                    ];
+                }
+            }
+            if ($s->service_type === 'Petitions filed under RA 9048 & RA 10172') {
+                $published = $s->statusLogs->where('status', 'Published')->last();
+                if ($published) {
+                    $pubAt = Carbon::parse($published->created_at);
+                    $due = $pubAt->copy()->addWeekdays(7);
+                    $items[] = [
+                        'due' => $due,
+                        'service' => $s,
+                        'label' => 'Decision window (7 business days)',
+                        'event' => 'decision_window',
+                    ];
+                }
+            }
+        }
+        usort($items, function ($a, $b) {
+            return $a['due'] <=> $b['due'];
+        });
+        $type = (string) $request->query('service_type', '');
+        $filtered = array_filter($items, function ($it) use ($type) {
+            if ($type && $it['service']->service_type !== $type) return false;
+            return true;
+        });
+        $today = Carbon::today();
+        $month = $today->copy()->addDays(30);
+        $todayCount = count(array_filter($filtered, function ($it) use ($today) { return $it['due']->isSameDay($today); }));
+        $monthCount = count(array_filter($filtered, function ($it) use ($today, $month) { return $it['due']->gte($today) && $it['due']->lte($month); }));
+        $overdueCount = count(array_filter($filtered, function ($it) use ($today) { return $it['due']->lt($today); }));
+        $types = Service::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
+        return view('scheduled.index', [
+            'items' => $filtered,
+            'types' => $types,
+            'selectedType' => $type,
+            'todayCount' => $todayCount,
+            'monthCount' => $monthCount,
+            'overdueCount' => $overdueCount,
+        ]);
+    }
+    
+    public function dashboard(Request $request): View
+    {
+        $services = Service::with('statusLogs')->get();
+        $triggerMap = [
+            'Application for Marriage License' => ['Posted'],
+            'Request for PSA documents through BREQS' => ['Ready for Pickup'],
+            'Delayed Registration' => ['Under Verification','Inconsistent','Consistent'],
+            'Endorsement for Negative PSA - Positive LCRO' => ['Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback'],
+            'Endorsement for Blurred PSA - Clear LCRO File' => ['Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback'],
+            'Endorsement of Legal Instrument & MC 2010-04 & Court Order' => ['Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback'],
+            'Petitions filed under RA 9048 - Clerical Error' => ['Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Affirmed','PSA Impugned','Resent to PSA Legal Services'],
+            'Petitions filed under RA 9048 & RA 10172' => ['Petition Ready for Filing','Filed','Published','Sent to PSA Legal Services','PSA Affirmed','PSA Impugned','Resent to PSA Legal Services'],
+        ];
+        $today = Carbon::today();
+        $monthStart = $today->copy()->subDays(30)->startOfDay();
+        $messagesToday = 0;
+        $messages30Days = 0;
+        $messagesTotal = 0;
+        foreach ($services as $s) {
+            $triggers = $triggerMap[$s->service_type] ?? [];
+            foreach ($s->statusLogs as $log) {
+                if (!in_array($log->status, $triggers, true)) {
+                    continue;
+                }
+                $messagesTotal++;
+                $dt = Carbon::parse($log->created_at);
+                if ($dt->isSameDay($today)) {
+                    $messagesToday++;
+                }
+                if ($dt->gte($monthStart)) {
+                    $messages30Days++;
+                }
+                $dateKey = $dt->format('Y-m-d');
+                if ($dt->gte($monthStart)) {
+                    $daily[$dateKey] = ($daily[$dateKey] ?? 0) + 1;
+                }
+            }
+        }
+        $dailyCounts = [];
+        $maxDaily = 0;
+        for ($i = 29; $i >= 0; $i--) {
+            $d = $today->copy()->subDays($i)->format('Y-m-d');
+            $val = (int)($daily[$d] ?? 0);
+            $dailyCounts[] = ['date' => $d, 'count' => $val];
+            if ($val > $maxDaily) $maxDaily = $val;
+        }
+        $request->merge([
+            'service_type' => $request->query('service_type'),
+        ]);
+        $scheduledView = $this->scheduled($request);
+        $data = $scheduledView->getData();
+        $items = $data['items'] ?? [];
+        $weekEnd = $today->copy()->addDays(7);
+        $monthEnd = $today->copy()->addDays(30);
+        $schedOverdue = array_filter($items, function ($it) use ($today) { return $it['due']->lt($today); });
+        $schedToday = array_filter($items, function ($it) use ($today) { return $it['due']->isSameDay($today); });
+        $schedWeek = array_filter($items, function ($it) use ($today, $weekEnd) { return $it['due']->gt($today) && $it['due']->lte($weekEnd); });
+        $schedMonth = array_filter($items, function ($it) use ($weekEnd, $monthEnd) { return $it['due']->gt($weekEnd) && $it['due']->lte($monthEnd); });
+        $countOverdue = count($schedOverdue);
+        $countToday = count($schedToday);
+        $countWeek = count($schedWeek);
+        $countMonth = count($schedMonth);
+        return view('dashboard', array_merge($data, [
+            'messagesToday' => $messagesToday,
+            'messages30Days' => $messages30Days,
+            'messagesTotal' => $messagesTotal,
+            'schedOverdue' => $schedOverdue,
+            'schedToday' => $schedToday,
+            'schedWeek' => $schedWeek,
+            'schedMonth' => $schedMonth,
+            'countOverdue' => $countOverdue,
+            'countToday' => $countToday,
+            'countWeek' => $countWeek,
+            'countMonth' => $countMonth,
+            'dailyCounts' => $dailyCounts,
+            'maxDaily' => $maxDaily,
+        ]));
+    }
+
     public function updateStatus(Request $request, Service $service): RedirectResponse
     {
         $validated = $request->validate([
@@ -245,10 +425,12 @@ class ServiceController extends Controller
             return redirect()->route('services.index')->with('status', 'Status not allowed for '.$service->service_type);
         }
         $prev = $service->status;
-        $idxPrev = array_search($prev, $allowed);
-        $idxNew = array_search($validated['status'], $allowed);
-        if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {
-            return redirect()->route('services.index')->with('status', 'Cannot move back in status');
+        if (!in_array($service->service_type, ['Endorsement for Negative PSA - Positive LCRO','Endorsement for Blurred PSA - Clear LCRO File','Endorsement of Legal Instrument & MC 2010-04 & Court Order','Petitions filed under RA 9048 - Clerical Error','Petitions filed under RA 9048 & RA 10172'], true)) {
+            $idxPrev = array_search($prev, $allowed);
+            $idxNew = array_search($validated['status'], $allowed);
+            if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {
+                return redirect()->route('services.index')->with('status', 'Cannot move back in status');
+            }
         }
         $service->update(['status' => $validated['status']]);
         if ($prev !== $validated['status']) {
@@ -278,6 +460,16 @@ class ServiceController extends Controller
             }
         }
         if (
+            $service->service_type === 'Request for PSA documents through BREQS' &&
+            $prev !== 'Ready for Pickup' &&
+            $validated['status'] === 'Ready for Pickup' &&
+            !$service->sms_ready_sent
+        ) {
+            $this->sms->send($service, 'ready_for_pickup');
+            $service->sms_ready_sent = true;
+            $service->save();
+        }
+        if (
             $service->service_type === 'Application for Marriage License' &&
             $prev !== 'Posted' &&
             $validated['status'] === 'Posted' &&
@@ -287,6 +479,106 @@ class ServiceController extends Controller
             $this->sms->send($service, 'posting_notice');
             $service->sms_posting_sent = true;
             $service->save();
+        }
+        if ($service->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
+            if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
+                $this->sms->send($service, 'psa_sent');
+            }
+            if ($prev !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                $this->sms->send($service, 'psa_feedback_received');
+            }
+            if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
+                $this->sms->send($service, 'psa_resent_for_processing');
+            }
+            if ($prev !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$service->sms_ready_sent) {
+                $this->sms->send($service, 'psa_no_feedback_uploaded');
+                $service->sms_ready_sent = true;
+                $service->save();
+            }
+        }
+        if ($service->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
+            if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
+                $this->sms->send($service, 'psa_sent');
+            }
+            if ($prev !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                $this->sms->send($service, 'psa_feedback_received');
+            }
+            if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
+                $this->sms->send($service, 'psa_resent_for_processing');
+            }
+            if ($prev !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$service->sms_ready_sent) {
+                $this->sms->send($service, 'psa_no_feedback_uploaded');
+                $service->sms_ready_sent = true;
+                $service->save();
+            }
+        }
+        if ($service->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
+            if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
+                $this->sms->send($service, 'psa_sent');
+            }
+            if ($prev !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                $this->sms->send($service, 'psa_feedback_received');
+            }
+            if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
+                $this->sms->send($service, 'psa_resent_for_processing');
+            }
+            if ($prev !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$service->sms_ready_sent) {
+                $this->sms->send($service, 'psa_no_feedback_uploaded');
+                $service->sms_ready_sent = true;
+                $service->save();
+            }
+        }
+        if ($service->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
+            if ($prev !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+                $this->sms->send($service, 'petition_ready_for_filing');
+            }
+            if ($prev !== 'Filed' && $validated['status'] === 'Filed' && !$service->sms_posting_sent) {
+                $service->posting_start_date = Carbon::today()->nextWeekday();
+                $this->sms->send($service, 'petition_ready_for_posting');
+                $service->sms_posting_sent = true;
+                $service->save();
+            }
+            if ($prev !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+                $this->sms->send($service, 'sent_to_psa_legal');
+            }
+            if ($prev !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+                $this->sms->send($service, 'psa_affirmed');
+            }
+            if ($prev !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+                $this->sms->send($service, 'psa_impugned');
+            }
+            if ($prev !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
+                $this->sms->send($service, 'psa_resent_for_review');
+            }
+        }
+        if ($service->service_type === 'Petitions filed under RA 9048 & RA 10172') {
+            if ($prev !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+                $this->sms->send($service, 'petition_ready_for_filing');
+            }
+            if ($prev !== 'Filed' && $validated['status'] === 'Filed' && !$service->sms_posting_sent) {
+                $service->posting_start_date = Carbon::today()->nextWeekday();
+                $this->sms->send($service, 'petition_ready_for_posting');
+                $service->sms_posting_sent = true;
+                $service->save();
+            }
+            if ($prev !== 'Published' && $validated['status'] === 'Published') {
+                $this->sms->send($service, 'petition_published');
+                $due = Carbon::today()->addWeekdays(7)->toDateString();
+                $service->notes = trim(($service->notes ? $service->notes . "\n" : '') . 'Decision expected by ' . $due);
+                $service->save();
+            }
+            if ($prev !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+                $this->sms->send($service, 'sent_to_psa_legal');
+            }
+            if ($prev !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+                $this->sms->send($service, 'psa_affirmed');
+            }
+            if ($prev !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+                $this->sms->send($service, 'psa_impugned');
+            }
+            if ($prev !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
+                $this->sms->send($service, 'psa_resent_for_review');
+            }
         }
         // Apply automation rules on status change
         $this->automation->handleStatusChange($service);
@@ -310,11 +602,13 @@ class ServiceController extends Controller
                 continue;
             }
             $prevStatus = $svc->status;
-            $idxPrev = array_search($prevStatus, $allowed);
-            $idxNew = array_search($validated['status'], $allowed);
-            if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {
-                $skippedCount++;
-                continue;
+            if (!in_array($svc->service_type, ['Endorsement for Negative PSA - Positive LCRO','Endorsement for Blurred PSA - Clear LCRO File','Endorsement of Legal Instrument & MC 2010-04 & Court Order','Petitions filed under RA 9048 - Clerical Error','Petitions filed under RA 9048 & RA 10172'], true)) {
+                $idxPrev = array_search($prevStatus, $allowed);
+                $idxNew = array_search($validated['status'], $allowed);
+                if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {
+                    $skippedCount++;
+                    continue;
+                }
             }
             $svc->update(['status' => $validated['status']]);
             if ($prevStatus !== $validated['status']) {
@@ -344,6 +638,16 @@ class ServiceController extends Controller
                 }
             }
             if (
+                $svc->service_type === 'Request for PSA documents through BREQS' &&
+                $prevStatus !== 'Ready for Pickup' &&
+                $validated['status'] === 'Ready for Pickup' &&
+                !$svc->sms_ready_sent
+            ) {
+                $this->sms->send($svc, 'ready_for_pickup');
+                $svc->sms_ready_sent = true;
+                $svc->save();
+            }
+            if (
                 $svc->service_type === 'Application for Marriage License' &&
                 $prevStatus !== 'Posted' &&
                 $validated['status'] === 'Posted' &&
@@ -353,6 +657,106 @@ class ServiceController extends Controller
                 $this->sms->send($svc, 'posting_notice');
                 $svc->sms_posting_sent = true;
                 $svc->save();
+            }
+            if ($svc->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
+                if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
+                    $this->sms->send($svc, 'psa_sent');
+                }
+                if ($prevStatus !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                    $this->sms->send($svc, 'psa_feedback_received');
+                }
+                if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
+                    $this->sms->send($svc, 'psa_resent_for_processing');
+                }
+                if ($prevStatus !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$svc->sms_ready_sent) {
+                    $this->sms->send($svc, 'psa_no_feedback_uploaded');
+                    $svc->sms_ready_sent = true;
+                    $svc->save();
+                }
+            }
+            if ($svc->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
+                if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
+                    $this->sms->send($svc, 'psa_sent');
+                }
+                if ($prevStatus !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                    $this->sms->send($svc, 'psa_feedback_received');
+                }
+                if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
+                    $this->sms->send($svc, 'psa_resent_for_processing');
+                }
+                if ($prevStatus !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$svc->sms_ready_sent) {
+                    $this->sms->send($svc, 'psa_no_feedback_uploaded');
+                    $svc->sms_ready_sent = true;
+                    $svc->save();
+                }
+            }
+            if ($svc->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
+                if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
+                    $this->sms->send($svc, 'psa_sent');
+                }
+                if ($prevStatus !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                    $this->sms->send($svc, 'psa_feedback_received');
+                }
+                if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
+                    $this->sms->send($svc, 'psa_resent_for_processing');
+                }
+                if ($prevStatus !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$svc->sms_ready_sent) {
+                    $this->sms->send($svc, 'psa_no_feedback_uploaded');
+                    $svc->sms_ready_sent = true;
+                    $svc->save();
+                }
+            }
+            if ($svc->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
+                if ($prevStatus !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+                    $this->sms->send($svc, 'petition_ready_for_filing');
+                }
+                if ($prevStatus !== 'Filed' && $validated['status'] === 'Filed' && !$svc->sms_posting_sent) {
+                    $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
+                    $this->sms->send($svc, 'petition_ready_for_posting');
+                    $svc->sms_posting_sent = true;
+                    $svc->save();
+                }
+                if ($prevStatus !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+                    $this->sms->send($svc, 'sent_to_psa_legal');
+                }
+                if ($prevStatus !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+                    $this->sms->send($svc, 'psa_affirmed');
+                }
+                if ($prevStatus !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+                    $this->sms->send($svc, 'psa_impugned');
+                }
+                if ($prevStatus !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
+                    $this->sms->send($svc, 'psa_resent_for_review');
+                }
+            }
+            if ($svc->service_type === 'Petitions filed under RA 9048 & RA 10172') {
+                if ($prevStatus !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+                    $this->sms->send($svc, 'petition_ready_for_filing');
+                }
+                if ($prevStatus !== 'Filed' && $validated['status'] === 'Filed' && !$svc->sms_posting_sent) {
+                    $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
+                    $this->sms->send($svc, 'petition_ready_for_posting');
+                    $svc->sms_posting_sent = true;
+                    $svc->save();
+                }
+                if ($prevStatus !== 'Published' && $validated['status'] === 'Published') {
+                    $this->sms->send($svc, 'petition_published');
+                    $due = \Illuminate\Support\Carbon::today()->addWeekdays(7)->toDateString();
+                    $svc->notes = trim(($svc->notes ? $svc->notes . "\n" : '') . 'Decision expected by ' . $due);
+                    $svc->save();
+                }
+                if ($prevStatus !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+                    $this->sms->send($svc, 'sent_to_psa_legal');
+                }
+                if ($prevStatus !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+                    $this->sms->send($svc, 'psa_affirmed');
+                }
+                if ($prevStatus !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+                    $this->sms->send($svc, 'psa_impugned');
+                }
+                if ($prevStatus !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
+                    $this->sms->send($svc, 'psa_resent_for_review');
+                }
             }
             $updatedCount++;
         }

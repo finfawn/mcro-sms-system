@@ -24,17 +24,11 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
                                 <select name="service_type" class="border-gray-300 rounded-md w-full" id="service_type">
                                     <option value="">Select type</option>
-                                    @php($types = [
-                                        'Application for Marriage License',
-                                        'Delayed Registration',
-                                        'Petition',
-                                        'Legal Instrument - Legitimation',
-                                        'Supplemental Report',
-                                        'BREQS',
-                                    ])
-                                    @foreach($types as $t)
-                                        <option value="{{ $t }}" @selected(old('service_type')===$t)>{{ $t }}</option>
-                                    @endforeach
+                                    @if(isset($types) && count($types))
+                                        @foreach($types as $t)
+                                            <option value="{{ $t }}" @selected(old('service_type')===$t)>{{ $t }}</option>
+                                        @endforeach
+                                    @endif
                                 </select>
                                 @error('service_type')<div class="text-sm text-red-600 mt-1">{{ $message }}</div>@enderror
                             </div>

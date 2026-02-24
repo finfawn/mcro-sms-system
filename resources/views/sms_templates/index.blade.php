@@ -11,10 +11,15 @@
                     <div class="px-3 py-2 border-b text-sm font-medium text-gray-700">Frontline Services
                     </div>
                     <ul class="divide-y divide-gray-200">
+                        @php
+                            $displayMap = [
+                                'Frontline Service' => 'Request for PSA documents through BREQS',
+                            ];
+                        @endphp
                         @foreach($grouped as $stype => $items)
                             <li>
                                 <a href="{{ route('sms-templates.index', ['service_type' => $stype]) }}" class="flex justify-between items-center px-3 py-2 hover:bg-gray-50">
-                                    <span class="text-sm text-gray-700">{{ str_replace('_',' ', $stype) }}</span>
+                                    <span class="text-sm text-gray-700">{{ $displayMap[$stype] ?? str_replace('_',' ', $stype) }}</span>
                                     <span class="text-xs text-gray-500">{{ $items->count() }}</span>
                                 </a>
                             </li>
@@ -26,7 +31,7 @@
                 <div class="bg-white border rounded-md">
                     <div class="px-4 py-3 border-b">
                         <div class="text-sm font-medium text-gray-700">
-                            {{ $current ? str_replace('_',' ', $current) : 'Select a service type' }}
+                            {{ $current ? ($displayMap[$current] ?? str_replace('_',' ', $current)) : 'Select a service type' }}
                         </div>
                     </div>
                     <div class="p-4">
@@ -36,7 +41,7 @@
                                 @foreach($currentTemplates as $tpl)
                                     <div class="tpl-row cursor-pointer hover:bg-gray-50">
                                         <div class="flex items-center justify-between px-3 py-2">
-                                            <div class="text-sm font-medium text-gray-700">{{ ucfirst(str_replace('_',' ', $tpl->event_key)) }}</div>
+                                            <div class="text-sm font-medium text-gray-700">{{ $loop->iteration }}. {{ ucfirst(str_replace('_',' ', $tpl->event_key)) }}</div>
                                             <div class="text-xs {{ $tpl->is_active ? 'text-green-600' : 'text-gray-500' }}">{{ $tpl->is_active ? 'Active' : 'Inactive' }}</div>
                                         </div>
                                     </div>

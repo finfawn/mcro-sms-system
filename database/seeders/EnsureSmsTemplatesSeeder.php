@@ -135,12 +135,6 @@ class EnsureSmsTemplatesSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'service_type' => 'Petitions filed under RA 9048 - Clerical Error',
-                'event_key' => 'psa_resent_for_review',
-                'template_body' => 'Good day {{citizen_name}} (Ref: {{reference_no}}). Your petition has been reworked and resent to PSA Legal Services for review.',
-                'is_active' => true,
-            ],
-            [
                 'service_type' => 'Petitions filed under RA 9048 & RA 10172',
                 'event_key' => 'petition_ready_for_filing',
                 'template_body' => 'Good day {{citizen_name}} (Ref: {{reference_no}}). Your petition is ready for filing. Please come to the MCRO office to sign and pay at the Treasury Office for filing and processing fees.',
@@ -176,16 +170,12 @@ class EnsureSmsTemplatesSeeder extends Seeder
                 'template_body' => 'Good day {{citizen_name}} (Ref: {{reference_no}}). Your petition has been impugned by PSA. Please come to the MCRO office for further processing.',
                 'is_active' => true,
             ],
-            [
-                'service_type' => 'Petitions filed under RA 9048 & RA 10172',
-                'event_key' => 'psa_resent_for_review',
-                'template_body' => 'Good day {{citizen_name}} (Ref: {{reference_no}}). Your petition has been reworked and resent to PSA Legal Services for review.',
-                'is_active' => true,
-            ],
         ];
 
         // Ensure no Frontline Service templates exist
         SmsTemplate::where('service_type', 'Frontline Service')->delete();
+        // Remove deprecated petition "resent" templates
+        SmsTemplate::where('event_key', 'psa_resent_for_review')->delete();
         foreach ($templates as $template) {
             $t = SmsTemplate::firstOrCreate(
                 [

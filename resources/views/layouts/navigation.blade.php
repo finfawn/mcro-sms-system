@@ -1,11 +1,11 @@
-<nav x-data="{ open: false }" class="bg-white border-b border-gray-100 sticky top-0 z-50">
+<nav x-data="{ open: false }" class="border-b border-gray-100 sticky top-0 z-50" style="backdrop-filter: saturate(180%) blur(10px); background-color: rgba(255,255,255,0.80);">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('services.index') }}">
+                    <a href="{{ route('welcome') }}">
                         <x-application-logo class="block h-12 w-auto" />
                     </a>
                 </div>
@@ -21,6 +21,11 @@
                     <x-nav-link :href="route('sms-templates.index')" :active="request()->routeIs('sms-templates.*')">
                         {{ __('SMS Settings') }}
                     </x-nav-link>
+                    @if((Auth::user()->role ?? 'user') === 'admin')
+                        <x-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">
+                            {{ __('Admin') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -40,6 +45,11 @@
                     </x-slot>
 
                     <x-slot name="content">
+                        @if((Auth::user()->role ?? 'user') === 'admin')
+                            <x-dropdown-link :href="route('admin.users.index')">
+                                Admin
+                            </x-dropdown-link>
+                        @endif
                         <x-dropdown-link :href="route('profile.edit')">
                             {{ __('Profile') }}
                         </x-dropdown-link>
@@ -79,6 +89,11 @@
             <x-responsive-nav-link :href="route('sms-templates.index')" :active="request()->routeIs('sms-templates.*')">
                 {{ __('SMS Templates') }}
             </x-responsive-nav-link>
+                    @if((Auth::user()->role ?? 'user') === 'admin')
+                        <x-responsive-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">
+                            {{ __('Admin') }}
+                        </x-responsive-nav-link>
+                    @endif
         </div>
 
         <!-- Responsive Settings Options -->

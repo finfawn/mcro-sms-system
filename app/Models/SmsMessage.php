@@ -4,22 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ServiceStatusLog extends Model
+class SmsMessage extends Model
 {
-    protected $table = 'service_status_logs';
+    protected $table = 'sms_messages';
     protected $fillable = [
         'service_id',
+        'to',
+        'body',
+        'provider',
+        'event_key',
         'status',
-        'note',
-        'user_id',
+        'error',
     ];
 
     public function service()
     {
         return $this->belongsTo(Service::class);
-    }
-    public function user()
-    {
-        return $this->belongsTo(\App\Models\User::class);
     }
 }

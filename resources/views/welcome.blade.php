@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>MCRO · civil registry notification</title>
+    <title>MCRO · Civil Registry SMS Notification</title>
     @vite(['resources/css/welcome.css'])
 </head>
 <body>
@@ -33,7 +33,7 @@
 
                 <!-- DESCRIPTION MOVED UP -->
                 <div class="welcome-description">
-                    <p>Official notification system of the Municipal Civil Registrar Office — real‑time updates on petitions, civil registry, and vital documents. Secure, timely, transparent.</p>
+                    <p>SMS Notification system of the Municipal Civil Registrar Office — Updates on petitions, civil registry, and vital documents. Secure, timely, transparent.</p>
                 </div>
 
                 <!-- LOGIN BUTTON NOW AFTER DESCRIPTION -->

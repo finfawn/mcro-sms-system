@@ -16,20 +16,28 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
+        <div class="fixed inset-0 -z-10">
+            <div class="absolute inset-0" style="background:
+                radial-gradient(1000px 500px at 100% 0%, rgba(14,165,233,0.10), transparent 70%),
+                radial-gradient(800px 400px at 0% 100%, rgba(34,197,94,0.08), transparent 70%),
+                linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%)"></div>
+            <div class="absolute inset-0 opacity-5" style="background: repeating-conic-gradient(from 45deg, rgba(30,58,138,0.06) 0deg 10deg, transparent 10deg 20deg)"></div>
+            <div class="absolute top-[-10%] left-[-8%] w-[420px] h-[420px] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 60%); filter: blur(18px);"></div>
+            <div class="absolute bottom-[-8%] right-[-6%] w-[480px] h-[480px] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(34,197,94,0.18) 0%, transparent 62%); filter: blur(18px);"></div>
+            <div class="absolute bottom-10 right-10 pointer-events-none" style="opacity:.12">
+                <img src="{{ asset('logo/LOGO1.png') }}" alt="Watermark" class="w-[420px] md:w-[560px] h-auto select-none">
+            </div>
+        </div>
+        <div class="min-h-screen">
             @include('layouts.navigation')
-
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow-sm sticky top-16 z-40 border-b border-gray-200">
-                    <div class="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
 
             <!-- Page Content -->
             <main>
+                @isset($header)
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                        {{ $header }}
+                    </div>
+                @endisset
                 {{ $slot }}
             </main>
         </div>
@@ -66,7 +74,8 @@
                 <div id="twToast" class="tw-toast flex items-center gap-3 bg-blue-600 text-white rounded-md shadow px-4 py-3">
                     <div class="flex-1 text-sm">{{ session('status') }}</div>
                     @if(session('undo_id'))
-                        <form id="undoForm" action="{{ route('services.restore', session('undo_id')) }}" method="POST" class="inline">
+                        @php $undoType = session('undo_type') ?? 'service'; @endphp
+                        <form id="undoForm" action="{{ $undoType === 'user' ? route('admin.users.restore', session('undo_id')) : route('services.restore', session('undo_id')) }}" method="POST" class="inline">
                             @csrf
                             <button type="submit" class="text-blue-600 bg-white hover:bg-gray-100 rounded px-2 py-1 text-xs">Undo</button>
                         </form>
@@ -124,7 +133,7 @@
                         animateOut(function(){
                             @if(session('undo_id'))
                             if (!undoClicked && csrf) {
-                                fetch("{{ route('services.force-delete', session('undo_id')) }}", {
+                                fetch("{{ (session('undo_type') ?? 'service') === 'user' ? route('admin.users.force-delete', session('undo_id')) : route('services.force-delete', session('undo_id')) }}", {
                                     method: "POST",
                                     headers: {
                                         "X-CSRF-TOKEN": csrf,
@@ -139,7 +148,7 @@
                         animateOut(function(){
                             @if(session('undo_id'))
                             if (!undoClicked && csrf) {
-                                fetch("{{ route('services.force-delete', session('undo_id')) }}", {
+                                fetch("{{ (session('undo_type') ?? 'service') === 'user' ? route('admin.users.force-delete', session('undo_id')) : route('services.force-delete', session('undo_id')) }}", {
                                     method: "POST",
                                     headers: {
                                         "X-CSRF-TOKEN": csrf,
@@ -184,6 +193,81 @@
                 };
                 close.addEventListener('click', hide);
                 setTimeout(hide, 5000);
+            };
+            window.twShowUndoToast = function (id, type, msg) {
+                var wrap = document.querySelector('.fixed.bottom-4.right-4.space-y-2');
+                if (!wrap) {
+                    wrap = document.createElement('div');
+                    wrap.className = 'fixed bottom-4 right-4 space-y-2';
+                    document.body.appendChild(wrap);
+                }
+                var el = document.createElement('div');
+                el.className = 'tw-toast flex items-center gap-3 bg-blue-600 text-white rounded-md shadow px-4 py-3';
+                var content = document.createElement('div');
+                content.className = 'flex-1 text-sm';
+                content.textContent = msg || 'Item deleted';
+                var undo = document.createElement('button');
+                undo.type = 'button';
+                undo.className = 'text-blue-600 bg-white hover:bg-gray-100 rounded px-2 py-1 text-xs';
+                undo.textContent = 'Undo';
+                var close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'text-white/90 hover:text-white text-sm';
+                close.textContent = '✕';
+                el.appendChild(content);
+                el.appendChild(undo);
+                el.appendChild(close);
+                wrap.appendChild(el);
+                requestAnimationFrame(function(){ el.classList.add('tw-in'); });
+                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                var undone = false;
+                var restoreUrl = type === 'user' ? "{{ route('admin.users.restore', '__ID__') }}".replace('__ID__', id) : "{{ route('services.restore', '__ID__') }}".replace('__ID__', id);
+                var forceUrl = type === 'user' ? "{{ route('admin.users.force-delete', '__ID__') }}".replace('__ID__', id) : "{{ route('services.force-delete', '__ID__') }}".replace('__ID__', id);
+                var hide = function(cb){
+                    el.classList.remove('tw-in');
+                    el.classList.add('tw-out');
+                    el.addEventListener('transitionend', function te(){
+                        el.removeEventListener('transitionend', te);
+                        el.remove();
+                        if (typeof cb === 'function') cb();
+                    }, { once: true });
+                };
+                undo.addEventListener('click', function(){
+                    undone = true;
+                    if (!csrf) { hide(); return; }
+                    fetch(restoreUrl, {
+                        method: 'POST',
+                        headers: { "X-CSRF-TOKEN": csrf, "Accept": "text/html" }
+                    }).then(function(){
+                        hide(function(){
+                            if (window.updateServicesTable) {
+                                window.updateServicesTable();
+                            } else {
+                                location.href = "{{ route('services.index') }}";
+                            }
+                        });
+                    });
+                });
+                close.addEventListener('click', function(){
+                    hide(function(){
+                        if (!undone && csrf) {
+                            fetch(forceUrl, {
+                                method: 'POST',
+                                headers: { "X-CSRF-TOKEN": csrf, "Accept": "application/json" }
+                            });
+                        }
+                    });
+                });
+                setTimeout(function(){
+                    hide(function(){
+                        if (!undone && csrf) {
+                            fetch(forceUrl, {
+                                method: 'POST',
+                                headers: { "X-CSRF-TOKEN": csrf, "Accept": "application/json" }
+                            });
+                        }
+                    });
+                }, 5000);
             };
         </script>
     </body>

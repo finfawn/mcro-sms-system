@@ -28,7 +28,17 @@
                     </div>
                     <div>
                         <div class="text-sm font-medium text-gray-500">Mobile Number</div>
-                        <div class="text-gray-900">{{ $service->mobile_number }}</div>
+                        @php
+                            $num = $service->mobile_number ?? '';
+                            $digits = preg_replace('/\D+/', '', $num);
+                            $prefix = str_starts_with($num, '+') ? '+' : '';
+                            $len = strlen($digits);
+                            $first = substr($digits, 0, min(2, $len));
+                            $last = $len >= 3 ? substr($digits, $len - 3, 3) : substr($digits, -$len);
+                            $middleLen = max(0, $len - strlen($first) - strlen($last));
+                            $masked = $prefix.$first.($middleLen ? str_repeat('•', $middleLen) : '').$last;
+                        @endphp
+                        <div class="text-gray-900">{{ $masked }}</div>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

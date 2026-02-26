@@ -1,32 +1,30 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="text-base font-semibold text-gray-900">Service List</h2>
-            <div class="flex items-center gap-2 w-full">
-                <div class="flex-1 hidden sm:flex justify-center">
-                    <form method="GET" action="{{ route('services.index') }}" class="flex items-center w-full justify-center">
-                        <input type="hidden" name="service_type" value="{{ $serviceType ?? '' }}">
-                        <input type="hidden" name="status" value="{{ $status ?? '' }}">
-                        <input type="hidden" name="sort" value="{{ $sort ?? 'updated' }}">
-                        <input type="hidden" name="direction" value="{{ $direction ?? 'desc' }}">
-                        <input type="text" name="name" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full max-w-md text-center" placeholder="Search name or reference" id="header_search">
-                    </form>
-                </div>
-                <a href="{{ route('services.bulk-upload.form') }}" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M2 2h12v3H2V2zm0 4h12v3H2V6zm0 4h12v2H2v-2z"/>
-                    </svg>
-                    <span>Bulk Upload</span>
-                </a>
-                <a href="{{ route('services.create') }}" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M8 1a1 1 0 011 1v5h5a1 1 0 110 2H9v5a1 1 0 11-2 0V9H2a1 1 0 110-2h5V2a1 1 0 011-1z"/>
-                    </svg>
-                    <span>New Entry</span>
-                </a>
+    <div class="flex justify-between items-center px-4 sm:px-6 lg:px-8 pt-3">
+        <h2 class="text-base font-semibold text-gray-900">Service List</h2>
+        <div class="flex items-center gap-2 w-full">
+            <div class="flex-1 hidden sm:flex justify-center">
+                <form method="GET" action="{{ route('services.index') }}" class="flex items-center w-full justify-center">
+                    <input type="hidden" name="service_type" value="{{ $serviceType ?? '' }}">
+                    <input type="hidden" name="status" value="{{ $status ?? '' }}">
+                    <input type="hidden" name="sort" value="{{ $sort ?? 'updated' }}">
+                    <input type="hidden" name="direction" value="{{ $direction ?? 'desc' }}">
+                    <input type="text" name="name" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full max-w-md text-center" placeholder="Search name or reference" id="header_search">
+                </form>
             </div>
+            <a href="{{ route('services.bulk-upload.form') }}" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M2 2h12v3H2V2zm0 4h12v3H2V6zm0 4h12v2H2v-2z"/>
+                </svg>
+                <span>Bulk Upload</span>
+            </a>
+            <a href="{{ route('services.create') }}" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M8 1a1 1 0 011 1v5h5a1 1 0 110 2H9v5a1 1 0 11-2 0V9H2a1 1 0 110-2h5V2a1 1 0 011-1z"/>
+                </svg>
+                <span>New Entry</span>
+            </a>
         </div>
-    </x-slot>
+    </div>
     
     <div class="py-4">
         <div class="max-w-7xl mx-auto px-4">
@@ -35,15 +33,19 @@
                 $mlStatuses = ['Filed','Paid','Posted','Released'];
                 $delayedStatuses = ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'];
                 $frontlineStatuses = ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
-                $endorsementStatuses = ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
-                $endorsementBlurredStatuses = ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
-                $endorsementLegalStatuses = ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
-                $ra9048Statuses = ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
-                $ra9048_10172Statuses = ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Published','Decision Rendered','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
+                $endorsementStatuses = ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
+                $endorsementBlurredStatuses = ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
+                $endorsementLegalStatuses = ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
+                $ra9048Statuses = ['Drafted','For Filing','Posted','Sent to PSA','Affirmed','Impugned'];
+                $ra9048_10172Statuses = ['Drafted','For Filing','Posted','Sent to PSA','Affirmed','Impugned'];
             @endphp
             
             <div class="bg-white border rounded-md mb-3">
                 <form id="filter_form" method="GET" action="{{ route('services.index') }}" class="px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="w-full md:hidden">
+                        <label for="filter_search_mobile" class="sr-only">Search</label>
+                        <input type="text" id="filter_search_mobile" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full text-sm" placeholder="Search name or reference">
+                    </div>
                     <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
                         <div class="w-full md:w-48">
                             <label class="block text-xs text-gray-500 mb-1">Service Type</label>
@@ -80,6 +82,7 @@
                                 <option value="desc" @selected(($direction ?? 'desc')==='desc')>Descending</option>
                             </select>
                         </div>
+                        <input type="hidden" name="name" id="filter_name" value="{{ $name ?? '' }}">
                     </div>
                 </form>
             </div>
@@ -104,6 +107,21 @@
                     height: 0;
                     opacity: 0;
                     transition: height 220ms ease, opacity 220ms ease;
+                .tw-timeline .item {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8px;
+                    position: relative;
+                    padding-left: 2px;
+                    margin-bottom: 8px;
+                }
+                .tw-timeline .item .dot {
+                    display: inline-block;
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 9999px;
+                    background-color: #9CA3AF; /* gray-400 */
+                    margin-top: 6px;
                 }
             </style>
             
@@ -112,14 +130,14 @@
                 <input type="hidden" name="status" id="bulkContextStatus">
             </form>
             
-            <div id="services_table_container" class="bg-white border rounded-md">
+            <div id="services_table_container" class="bg-white border rounded-md overflow-x-auto overflow-y-auto hidden md:block relative max-h-[70vh]">
                 <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                    <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
                         <tr>
                             <th class="w-9 px-3 py-2">
                                 <input type="checkbox" id="select_all" class="rounded border-gray-300">
                             </th>
-                            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Reference No</th>
+                            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Reference</th>
                             <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Citizen Name</th>
                             <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Service Type</th>
                             <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Status</th>
@@ -149,7 +167,20 @@
                                 }
                                 $currentIndex = array_search($s->status, $rowStatuses);
                             @endphp
-                            <tr class="hover:bg-gray-50 svc-row cursor-pointer"
+                            @php
+                                $accentMap = [
+                                    'Filed' => 'border-l-gray-300',
+                                    'Processing' => 'border-l-blue-400',
+                                    'Paid' => 'border-l-indigo-400',
+                                    'Posted' => 'border-l-amber-400',
+                                    'Ready for Release' => 'border-l-emerald-400',
+                                    'Released' => 'border-l-green-500',
+                                    'Rejected' => 'border-l-red-500',
+                                ];
+                                $accent = $accentMap[$s->status] ?? 'border-l-gray-200';
+                            @endphp
+                            <tr class="hover:bg-gray-50 svc-row cursor-pointer {{ $accent }} border-l-4"
+                                data-id="{{ $s->id }}"
                                 data-ref="{{ $s->reference_no }}"
                                 data-name="{{ $s->citizen_name }}"
                                 data-type="{{ $s->service_type }}"
@@ -157,7 +188,7 @@
                                 data-filed="{{ $s->created_at->format('Y-m-d H:i') }}"
                                 data-paid="{{ $s->payment_date ? $s->payment_date->toDateString() : '' }}"
                                 data-posted="{{ $s->posting_start_date ? $s->posting_start_date->toDateString() : '' }}"
-                                data-ready="{{ $s->posting_start_date ? $s->posting_start_date->copy()->addDays(10)->toDateString() : '' }}"
+                                data-ready="{{ $s->posting_start_date ? $s->posting_start_date->copy()->addWeekdays(10)->toDateString() : '' }}"
                                 data-released="{{ $s->release_date ? $s->release_date->toDateString() : '' }}"
                                 data-notes="{{ $s->notes ?? '' }}"
                             >
@@ -165,7 +196,10 @@
                                     <input type="checkbox" name="ids[]" value="{{ $s->id }}" class="rounded border-gray-300 row-select">
                                 </td>
                                 <td class="px-3 py-2">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="svc-chev text-gray-400 transition-transform duration-200" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.646 6.646a.5.5 0 01.708 0L8 9.293l2.646-2.647a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 010-.708z"/></svg>
                                     <a href="{{ route('services.show', $s) }}" class="text-indigo-600 hover:text-indigo-700">{{ $s->reference_no }}</a>
+                                    </div>
                                 </td>
                                 <td class="px-3 py-2">{{ $s->citizen_name }}</td>
                                 <td class="px-3 py-2">{{ $s->service_type }}</td>
@@ -209,7 +243,7 @@
                                             <path d="M12.146 0.646a.5.5 0 01.708 0l2.5 2.5a.5.5 0 010 .708l-8.5 8.5-3 1a.5.5 0 01-.638-.638l1-3 8.5-8.5zM11.5 1.5l-8.5 8.5-.5 1.5 1.5-.5 8.5-8.5-1-1z"/>
                                         </svg>
                                     </a>
-                                    <form action="{{ route('services.destroy', $s) }}" method="POST" class="inline svc-delete-form" onsubmit="return confirm('Delete this service entry?');">
+                                    <form action="{{ route('services.destroy', $s) }}" method="POST" class="inline svc-delete-form">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="tw-pressable inline-flex items-center border rounded-md px-2 py-1 text-red-700 hover:bg-red-50" title="Delete" aria-label="Delete">
@@ -224,39 +258,41 @@
                             <tr class="details-row hidden">
                                 <td colspan="6" class="bg-gray-50">
                                     <div class="p-3 details-content">
-                                        <div class="text-sm font-medium text-gray-700 mb-2">Timeline</div>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                            <div>
-                                                <div class="text-gray-500">Filed</div>
-                                                <div class="text-gray-900">{{ $s->created_at->format('Y-m-d H:i') }}</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Paid</div>
-                                                <div class="text-gray-900">
-                                                    {{ $s->payment_date ? $s->payment_date->format('Y-m-d') : '—' }}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Posted</div>
-                                                <div class="text-gray-900">
-                                                    {{ $s->posting_start_date ? $s->posting_start_date->format('Y-m-d') : '—' }}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Ready For Release (estimated)</div>
-                                                <div class="text-gray-900">
-                                                    {{ $s->posting_start_date ? $s->posting_start_date->copy()->addDays(10)->format('Y-m-d') : '—' }}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Released</div>
-                                                <div class="text-gray-900">
-                                                    {{ $s->release_date ? $s->release_date->format('Y-m-d') : '—' }}
-                                                </div>
-                                            </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                             <div class="md:col-span-2">
-                                                <div class="text-gray-500">Notes</div>
-                                                <div class="text-gray-900">{{ $s->notes ?? '—' }}</div>
+                                                <div class="text-sm font-medium text-gray-700 mb-2">Timeline</div>
+                                                <div class="tw-timeline">
+                                                    @forelse($s->statusLogs as $log)
+                                                        <div class="item">
+                                                            <span class="dot"></span>
+                                                            <div>
+                                                                <div class="text-gray-500">{{ $log->status }}</div>
+                                                                <div class="text-gray-900">{{ $log->created_at->format('Y-m-d H:i') }}</div>
+                                                                <div class="text-xs text-gray-700">{{ $log->user ? $log->user->name : 'System' }}</div>
+                                                            </div>
+                                                        </div>
+                                                    @empty
+                                                        <div class="item">
+                                                            <span class="dot"></span>
+                                                            <div>
+                                                                <div class="text-gray-500">No activity yet</div>
+                                                            </div>
+                                                        </div>
+                                                    @endforelse
+                                                    @if($s->posting_start_date)
+                                                        <div class="item">
+                                                            <span class="dot"></span>
+                                                            <div>
+                                                                <div class="text-gray-500">Ready For Release (estimated)</div>
+                                                                <div class="text-gray-900">{{ $s->posting_start_date->copy()->addWeekdays(10)->format('Y-m-d') }}</div>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-700 mb-2">Notes</div>
+                                                <div class="text-gray-900 bg-white rounded-md ring-1 ring-gray-200 p-2">{{ $s->notes ?? '—' }}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -269,6 +305,82 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+            <div id="twDeleteModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="twDeleteTitle">
+                <div class="absolute inset-0 bg-black/30"></div>
+                <div class="relative max-w-md mx-auto mt-24 bg-white rounded-lg shadow ring-1 ring-gray-200">
+                    <div class="px-4 py-3 border-b">
+                        <div id="twDeleteTitle" class="text-sm font-medium text-gray-900">Confirm Deletion</div>
+                    </div>
+                    <div class="px-4 py-3">
+                        <div class="text-sm text-gray-700">You are about to delete this service entry. This action cannot be undone.</div>
+                        <div class="mt-2 text-sm text-gray-900"><span id="twDeleteRef"></span> · <span id="twDeleteName"></span></div>
+                    </div>
+                    <div class="px-4 py-3 border-t flex justify-end gap-2">
+                        <button type="button" id="twDeleteCancel" class="inline-flex items-center px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">Cancel</button>
+                        <button type="button" id="twDeleteConfirm" class="inline-flex items-center px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete</button>
+                    </div>
+                </div>
+            </div>
+            <div class="md:hidden space-y-2">
+                @forelse($services as $s)
+                    @php
+                        $rowStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
+                        if ($s->service_type === 'Application for Marriage License') {
+                            $rowStatuses = ['Filed','Paid','Posted','Released'];
+                        } elseif ($s->service_type === 'Delayed Registration') {
+                            $rowStatuses = $delayedStatuses;
+                        } elseif ($s->service_type === 'Frontline Service') {
+                            $rowStatuses = $frontlineStatuses;
+                        } elseif ($s->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
+                            $rowStatuses = $endorsementStatuses;
+                        } elseif ($s->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
+                            $rowStatuses = $endorsementBlurredStatuses;
+                        } elseif ($s->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
+                            $rowStatuses = $endorsementLegalStatuses;
+                        } elseif ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
+                            $rowStatuses = $ra9048Statuses;
+                        } elseif ($s->service_type === 'Petitions filed under RA 9048 & RA 10172') {
+                            $rowStatuses = $ra9048_10172Statuses;
+                        }
+                    @endphp
+                    <div class="bg-white border rounded-md p-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <a href="{{ route('services.show', $s) }}" class="text-indigo-600">{{ $s->reference_no }}</a>
+                                <div class="text-xs text-gray-500">{{ $s->service_type }}</div>
+                            </div>
+                            <div class="text-xs text-gray-500">{{ $s->updated_at->format('Y-m-d H:i') }}</div>
+                        </div>
+                        <div class="mt-1 text-sm text-gray-900">{{ $s->citizen_name }}</div>
+                        <div class="mt-2 flex items-center justify-between">
+                            <form action="{{ route('services.update-status', $s) }}" method="POST" aria-label="Update status">
+                                @csrf
+                                @method('PUT')
+                                <label class="sr-only" for="status-{{ $s->id }}">Status</label>
+                                <select id="status-{{ $s->id }}" name="status" class="border-gray-300 rounded-md text-sm px-2 py-1" onchange="this.form.submit()">
+                                    @foreach($rowStatuses as $st)
+                                        <option value="{{ $st }}" @selected($s->status === $st)>{{ $st }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
+                            <div class="flex items-center gap-2">
+                                <a class="inline-flex items-center border rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100" href="{{ route('services.edit', $s) }}" title="Edit" aria-label="Edit">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M12.146 0.646a.5.5 0 01.708 0l2.5 2.5a.5.5 0 010 .708l-8.5 8.5-3 1a.5.5 0 01-.638-.638l1-3 8.5-8.5zM11.5 1.5l-8.5 8.5-.5 1.5 1.5-.5 8.5-8.5-1-1z"/></svg>
+                                </a>
+                                <form action="{{ route('services.destroy', $s) }}" method="POST" class="inline svc-delete-form" onsubmit="return confirm('Delete this service entry?');" aria-label="Delete entry">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="inline-flex items-center border rounded-md px-2 py-1 text-red-700 hover:bg-red-50" title="Delete" aria-label="Delete">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 5.5a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5zm5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4H2.5a1 1 0 110-2H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1zM4 4v9a1 1 0 001 1h6a1 1 0 001-1V4H4z"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="bg-white border rounded-md p-3 text-sm text-gray-500">No services filed</div>
+                @endforelse
             </div>
             <div id="rowDetailsPanel" class="bg-white border rounded-md mt-3 p-4 hidden">
                 <div class="text-sm font-medium text-gray-700 mb-2">Selected Entry Details</div>
@@ -473,9 +585,11 @@
                         var details = row.nextElementSibling;
                         if (details && details.classList.contains('details-row')) {
                             var content = details.querySelector('.details-content');
+                                var chev = row.querySelector('.svc-chev');
                             var openRow = Array.prototype.find.call(document.querySelectorAll('.details-row'), function(dr){ return !dr.classList.contains('hidden'); });
                             if (openRow && openRow !== details) {
                                 var openContent = openRow.querySelector('.details-content');
+                                    var openChev = openRow.previousElementSibling && openRow.previousElementSibling.querySelector('.svc-chev');
                                 if (openContent) {
                                     openContent.style.height = openContent.scrollHeight + 'px';
                                     requestAnimationFrame(function(){
@@ -490,6 +604,7 @@
                                 } else {
                                     openRow.classList.add('hidden');
                                 }
+                                    if (openChev) { openChev.classList.remove('rotate-180'); }
                             }
                             var isHidden = details.classList.contains('hidden');
                             if (isHidden) {
@@ -508,6 +623,7 @@
                                         }, { once: true });
                                     });
                                 }
+                                    if (chev) { chev.classList.add('rotate-180'); }
                             } else {
                                 if (content) {
                                     content.style.height = content.scrollHeight + 'px';
@@ -523,6 +639,7 @@
                                 } else {
                                     details.classList.add('hidden');
                                 }
+                                    if (chev) { chev.classList.remove('rotate-180'); }
                             }
                         }
                     });
@@ -558,56 +675,67 @@
             }
             function attachDeleteAnimations(){
                 var deleteForms = document.querySelectorAll('.svc-delete-form');
+                var modal = document.getElementById('twDeleteModal');
+                var btnCancel = document.getElementById('twDeleteCancel');
+                var btnConfirm = document.getElementById('twDeleteConfirm');
+                var refEl = document.getElementById('twDeleteRef');
+                var nameEl = document.getElementById('twDeleteName');
+                var pendingForm = null;
+                function openModal(form){
+                    pendingForm = form;
+                    var tr = form.closest('tr');
+                    var ref = tr ? (tr.dataset.ref || '') : '';
+                    var name = tr ? (tr.dataset.name || '') : '';
+                    if (refEl) refEl.textContent = ref;
+                    if (nameEl) nameEl.textContent = name;
+                    modal.classList.remove('hidden');
+                }
+                function closeModal(){
+                    modal.classList.add('hidden');
+                    pendingForm = null;
+                }
                 deleteForms.forEach(function(f){
                     f.addEventListener('submit', function(e){
                         e.preventDefault();
-                        var tr = f.closest('tr');
-                        if (tr) tr.classList.add('tw-row-out');
-                        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                        var fd = new FormData(f);
-                        fetch(f.action, {
-                            method: 'POST',
-                            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'text/html' },
-                            body: fd
-                        }).then(function(){
-                            if (window.updateServicesTable) window.updateServicesTable();
+                        openModal(f);
+                    });
+                });
+                if (btnCancel) btnCancel.addEventListener('click', closeModal);
+                if (btnConfirm) btnConfirm.addEventListener('click', function(){
+                    if (!pendingForm) return;
+                    var form = pendingForm;
+                    closeModal();
+                    var tr = form.closest('tr');
+                    if (tr) tr.classList.add('tw-row-out');
+                    var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    var fd = new FormData(form);
+                    fetch(form.action, {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'text/html' },
+                        body: fd
+                    }).then(function(res){
+                        if (res.status === 419) { location.reload(); return Promise.reject(); }
+                        var id = tr ? (tr.dataset.id || null) : null;
+                        if (id && typeof window.twShowUndoToast === 'function') {
+                            window.twShowUndoToast(id, 'service', 'Service entry deleted');
+                        } else {
                             if (window.twShowToast) window.twShowToast('Service entry deleted');
-                        }).catch(function(){
-                            if (window.twShowToast) window.twShowToast('Delete failed');
-                        });
+                        }
+                    }).catch(function(){
+                        if (window.twShowToast) window.twShowToast('Delete failed');
                     });
                 });
             }
             function updateResults(){
+                var form = document.getElementById('filter_form');
                 var headerSearch = document.getElementById('header_search');
-                var caretStart = headerSearch ? headerSearch.selectionStart : 0;
-                var caretEnd = headerSearch ? headerSearch.selectionEnd : 0;
-                var params = new URLSearchParams();
-                if (typeSelect) params.set('service_type', typeSelect.value || '');
-                if (statusSelect) params.set('status', statusSelect.value || '');
-                if (sortSelect) params.set('sort', sortSelect.value || 'updated');
-                if (directionSelect) params.set('direction', directionSelect.value || 'desc');
-                if (headerSearch) params.set('name', headerSearch.value || '');
-                var url = (document.getElementById('filter_form') || headerSearch.form).getAttribute('action') + '?' + params.toString();
-                if (tableContainer) {
-                    tableContainer.innerHTML = '<div class=\"px-3 py-2 text-sm text-gray-500\">Loading...</div>';
-                }
-                fetch(url, { method: 'GET' })
-                    .then(function(res){ return res.text(); })
-                    .then(function(html){
-                        var doc = new DOMParser().parseFromString(html, 'text/html');
-                        var newContainer = doc.getElementById('services_table_container');
-                        if (newContainer && tableContainer) {
-                            tableContainer.innerHTML = newContainer.innerHTML;
-                            rebindRowClicks();
-                            bindSelectAll();
-                            attachDeleteAnimations();
-                        }
-                        if (headerSearch) {
-                            headerSearch.focus();
-                            try { headerSearch.setSelectionRange(caretStart, caretEnd); } catch(e){}
-                        }
-                    });
+                var mobileSearch = document.getElementById('filter_search_mobile');
+                var filterName = document.getElementById('filter_name');
+                var q = '';
+                if (headerSearch) q = headerSearch.value || '';
+                if (!q && mobileSearch) q = mobileSearch.value || '';
+                if (filterName) filterName.value = q;
+                if (form) form.submit();
             }
             if (typeSelect && statusSelect) {
                 populateStatuses();
@@ -622,13 +750,19 @@
             if (directionSelect) directionSelect.addEventListener('change', updateResults);
             var headerSearch2 = document.getElementById('header_search');
             if (headerSearch2 && headerSearch2.form) {
-                headerSearch2.form.addEventListener('submit', function(e){ e.preventDefault(); });
+                headerSearch2.form.addEventListener('submit', function(e){ /* allow default */ });
                 var debounceTimer;
                 headerSearch2.addEventListener('input', function(){
                     clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(function(){
-                        updateResults();
-                    }, 300);
+                    debounceTimer = setTimeout(function(){ updateResults(); }, 300);
+                });
+            }
+            var mobileSearch2 = document.getElementById('filter_search_mobile');
+            if (mobileSearch2) {
+                var debounceTimer2;
+                mobileSearch2.addEventListener('input', function(){
+                    clearTimeout(debounceTimer2);
+                    debounceTimer2 = setTimeout(function(){ updateResults(); }, 300);
                 });
             }
             window.updateServicesTable = updateResults;

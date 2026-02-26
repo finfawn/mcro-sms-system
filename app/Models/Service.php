@@ -23,6 +23,7 @@ class Service extends Model
         'release_date',
         'sms_posting_sent',
         'sms_ready_sent',
+        'sms_release_sent',
     ];
     protected $casts = [
         'payment_date' => 'date',
@@ -30,6 +31,7 @@ class Service extends Model
         'release_date' => 'date',
         'sms_posting_sent' => 'boolean',
         'sms_ready_sent' => 'boolean',
+        'sms_release_sent' => 'boolean',
     ];
 
     public function statusLogs()

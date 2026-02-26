@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Service;
 use App\Models\SmsTemplate;
+use App\Models\SmsMessage;
 use Illuminate\Support\Facades\Log;
 use App\Services\Sms\Contracts\SmsProvider;
 use App\Services\Sms\Providers\LogSmsProvider;
@@ -58,12 +59,30 @@ class SmsService
         try {
             $to = $this->normalizeRecipient($service->mobile_number);
             $this->provider->send($to, $body);
+            SmsMessage::create([
+                'service_id' => $service->id,
+                'to' => $to,
+                'body' => $body,
+                'provider' => (string)config('sms.provider', 'log'),
+                'event_key' => $event_key,
+                'status' => 'sent',
+                'error' => null,
+            ]);
             Log::info('SMS sent', [
                 'to' => $to,
                 'service_id' => $service->id,
                 'event_key' => $event_key,
             ]);
         } catch (\Throwable $e) {
+            SmsMessage::create([
+                'service_id' => $service->id,
+                'to' => $service->mobile_number,
+                'body' => $body,
+                'provider' => (string)config('sms.provider', 'log'),
+                'event_key' => $event_key,
+                'status' => 'failed',
+                'error' => $e->getMessage(),
+            ]);
             Log::error('SMS send failed', [
                 'to' => $service->mobile_number,
                 'service_id' => $service->id,

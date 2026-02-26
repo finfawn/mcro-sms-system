@@ -57,7 +57,6 @@ class SmsTemplateController extends Controller
                 'sent_to_psa_legal' => 3,
                 'psa_affirmed' => 4,
                 'psa_impugned' => 5,
-                'psa_resent_for_review' => 6,
             ],
             'Petitions filed under RA 9048 & RA 10172' => [
                 'petition_ready_for_filing' => 1,
@@ -66,7 +65,6 @@ class SmsTemplateController extends Controller
                 'sent_to_psa_legal' => 4,
                 'psa_affirmed' => 5,
                 'psa_impugned' => 6,
-                'psa_resent_for_review' => 7,
             ],
         ];
         if ($current && isset($orders[$current])) {

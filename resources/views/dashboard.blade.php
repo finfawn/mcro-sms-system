@@ -1,16 +1,11 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="text-base font-semibold text-gray-900">Dashboard</h2>
-        </div>
-    </x-slot>
     <div class="py-4">
         <div class="max-w-7xl mx-auto px-4">
             <div class="mb-4 rounded-xl overflow-hidden bg-white text-gray-900 shadow ring-1 ring-gray-200 relative">
                 <div class="absolute inset-y-0 left-0 w-2 bg-blue-600"></div>
-                <img src="{{ asset('logo/MCR TUBLAY LOGO..png') }}" alt="" class="absolute right-6 top-1/2 -translate-y-1/2 h-16 w-16 opacity-10 pointer-events-none">
-                <div class="p-6 pl-8 flex items-center justify-between">
-                    <div class="flex items-center gap-4">
+                <img src="{{ asset('logo/MCR TUBLAY LOGO..png') }}" alt="" class="hidden md:block absolute right-6 top-1/2 -translate-y-1/2 h-16 w-16 opacity-10 pointer-events-none">
+                <div class="p-4 md:p-6 md:pl-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
                         <x-application-logo class="h-12 w-auto rounded-full ring-2 ring-indigo-200 bg-white" />
                         <div>
                             <div class="text-xs text-gray-500">MCRO SMS Notification</div>
@@ -18,7 +13,7 @@
                             <div class="text-xs text-gray-500">Real-time status and upcoming schedules</div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-6">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-6 w-full md:w-auto">
                         <div class="text-center bg-blue-600 text-white rounded-md px-4 py-2">
                             <div class="flex items-center justify-center gap-2 text-xs">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a1 1 0 011 1v2h2a1 1 0 110 2H9v2a1 1 0 11-2 0V6H5a1 1 0 110-2h2V2a1 1 0 011-1z"/></svg>
@@ -44,24 +39,17 @@
                 </div>
             </div>
             
-            <div class="bg-white rounded-xl ring-1 ring-gray-200 shadow-sm mb-4">
-                <form method="GET" action="{{ route('dashboard') }}" class="px-4 py-3 flex items-end gap-3" id="dash_filter_form">
-                    <div class="flex items-center gap-2 w-full md:w-80">
-                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-blue-50 text-blue-600">
-                            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true"><path d="M3 4a1 1 0 011-1h10a1 1 0 01.8 1.6L11 9.5V14a1 1 0 01-1.447.894l-2-1A1 1 0 017 13V9.5L3.2 4.6A1 1 0 013 4z"/></svg>
-                        </span>
-                        <div class="flex-1">
-                            <label class="block text-xs text-gray-500 mb-1">Service Type</label>
-                            <select name="service_type" class="border-gray-300 rounded-md w-full text-sm" id="dash_service_select">
-                                <option value="">All</option>
-                                @if(isset($types))
-                                    @foreach($types as $t)
-                                        <option value="{{ $t }}" @selected(($selectedType ?? '') === $t)>{{ $t }}</option>
-                                    @endforeach
-                                @endif
-                            </select>
-                        </div>
-                    </div>
+            <div class="mb-2 px-4">
+                <form method="GET" action="{{ route('dashboard') }}" class="flex items-center justify-end gap-2" id="dash_filter_form">
+                    <label for="dash_service_select" class="sr-only">Service Type</label>
+                    <select name="service_type" id="dash_service_select" class="border-gray-300 rounded-md text-xs h-8 px-2 w-64">
+                        <option value="">All</option>
+                        @if(isset($types))
+                            @foreach($types as $t)
+                                <option value="{{ $t }}" @selected(($selectedType ?? '') === $t)>{{ $t }}</option>
+                            @endforeach
+                        @endif
+                    </select>
                 </form>
             </div>
             <script>
@@ -183,6 +171,121 @@
                     </div>
                 </div>
             </div>
+            <div class="px-4 pb-6">
+                <div class="bg-white border rounded-md">
+                    <div class="px-4 py-3 border-b flex items-center justify-between">
+                        <div class="text-sm font-medium text-gray-900">Recent SMS</div>
+                        <div class="flex items-center gap-3">
+                            <div class="text-xs text-gray-500">Last {{ ($recentSms ?? collect())->count() }} messages</div>
+                            @if((Auth::user()->role ?? 'user') === 'admin')
+                                <form id="dashClearSmsForm" method="POST" action="{{ route('dashboard.clear-sms') }}">
+                                    @csrf
+                                    <button type="submit" class="text-xs text-red-600 hover:text-red-700">Clear History</button>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="p-2 overflow-x-auto overflow-y-auto relative max-h-[60vh] hidden md:block">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-50 sticky top-0 z-10">
+                                <tr class="text-xs text-gray-500">
+                                    <th class="px-3 py-2 text-left">Date</th>
+                                    <th class="px-3 py-2 text-left">Recipient</th>
+                                    <th class="px-3 py-2 text-left">Service</th>
+                                    <th class="px-3 py-2 text-left">Event</th>
+                                    <th class="px-3 py-2 text-left">Provider</th>
+                                    <th class="px-3 py-2 text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse(($recentSms ?? []) as $m)
+                                    <tr class="text-sm">
+                                        <td class="px-3 py-2 text-gray-700">{{ $m->created_at->format('Y-m-d H:i') }}</td>
+                                        <td class="px-3 py-2">
+                                            @php
+                                                $num = $m->to ?? '';
+                                                $digits = preg_replace('/\D+/', '', $num);
+                                                $prefix = str_starts_with($num, '+') ? '+' : '';
+                                                $len = strlen($digits);
+                                                $first = substr($digits, 0, min(2, $len));
+                                                $last = $len >= 3 ? substr($digits, $len - 3, 3) : substr($digits, -$len);
+                                                $middleLen = max(0, $len - strlen($first) - strlen($last));
+                                                $masked = $prefix.$first.($middleLen ? str_repeat('•', $middleLen) : '').$last;
+                                            @endphp
+                                            <div class="text-gray-900">{{ $masked }}</div>
+                                        </td>
+                                        <td class="px-3 py-2">
+                                            @if($m->service)
+                                                <div class="text-gray-900">{{ $m->service->reference_no }}</div>
+                                                <div class="text-xs text-gray-500">{{ $m->service->citizen_name }}</div>
+                                                <div class="text-xs text-gray-700">{{ $m->service->service_type }}</div>
+                                            @else
+                                                <div class="text-gray-500">—</div>
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2 text-gray-700">{{ $m->event_key ?? '—' }}</td>
+                                        <td class="px-3 py-2 text-gray-700">{{ strtoupper($m->provider) }}</td>
+                                        <td class="px-3 py-2">
+                                            @php $ok = $m->status === 'sent'; @endphp
+                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs {{ $ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $ok ? 'Sent' : 'Failed' }}</span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="px-3 py-3 text-sm text-gray-500">No SMS activity yet</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-2 md:hidden space-y-2">
+                        @forelse(($recentSms ?? []) as $m)
+                            @php
+                                $num = $m->to ?? '';
+                                $digits = preg_replace('/\D+/', '', $num);
+                                $prefix = str_starts_with($num, '+') ? '+' : '';
+                                $len = strlen($digits);
+                                $first = substr($digits, 0, min(2, $len));
+                                $last = $len >= 3 ? substr($digits, $len - 3, 3) : substr($digits, -$len);
+                                $middleLen = max(0, $len - strlen($first) - strlen($last));
+                                $masked = $prefix.$first.($middleLen ? str_repeat('•', $middleLen) : '').$last;
+                                $ok = $m->status === 'sent';
+                            @endphp
+                            <div class="bg-white border rounded-md p-3">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <div class="text-sm text-gray-900">{{ $masked }}</div>
+                                        @if($m->service)
+                                            <div class="text-xs text-gray-500">{{ $m->service->reference_no }}</div>
+                                            <div class="text-xs text-gray-700">{{ $m->service->service_type }}</div>
+                                        @endif
+                                    </div>
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs {{ $ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $ok ? 'Sent' : 'Failed' }}</span>
+                                </div>
+                                <div class="mt-1 text-xs text-gray-500">{{ $m->created_at->format('Y-m-d H:i') }}</div>
+                                <div class="mt-1 text-xs text-gray-700">{{ strtoupper($m->provider) }} · {{ $m->event_key ?? '—' }}</div>
+                            </div>
+                        @empty
+                            <div class="bg-white border rounded-md p-3 text-sm text-gray-500">No SMS activity yet</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+            <div id="twClearSmsModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="twClearSmsTitle">
+                <div class="absolute inset-0 bg-black/30"></div>
+                <div class="relative max-w-md mx-auto mt-24 bg-white rounded-lg shadow ring-1 ring-gray-200">
+                    <div class="px-4 py-3 border-b">
+                        <div id="twClearSmsTitle" class="text-sm font-medium text-gray-900">Clear SMS History</div>
+                    </div>
+                    <div class="px-4 py-3">
+                        <div class="text-sm text-gray-700">This will remove all SMS history records. This action cannot be undone.</div>
+                    </div>
+                    <div class="px-4 py-3 border-t flex justify-end gap-2">
+                        <button type="button" id="twClearSmsCancel" class="inline-flex items-center px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">Cancel</button>
+                        <button type="button" id="twClearSmsConfirm" class="inline-flex items-center px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Clear</button>
+                    </div>
+                </div>
+            </div>
             <style>
                 .tw-surface{
                     background:
@@ -192,4 +295,36 @@
             </style>
         </div>
     </div>
+    <script>
+        (function(){
+            var form = document.getElementById('dashClearSmsForm');
+            var modal = document.getElementById('twClearSmsModal');
+            var btnCancel = document.getElementById('twClearSmsCancel');
+            var btnConfirm = document.getElementById('twClearSmsConfirm');
+            function openModal(){ if (modal) modal.classList.remove('hidden'); }
+            function closeModal(){ if (modal) modal.classList.add('hidden'); }
+            if (form) {
+                form.addEventListener('submit', function(e){
+                    e.preventDefault();
+                    openModal();
+                });
+            }
+            if (btnCancel) btnCancel.addEventListener('click', closeModal);
+            if (btnConfirm) btnConfirm.addEventListener('click', function(){
+                closeModal();
+                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                var fd = new FormData(form);
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'text/html' }
+                }).then(function(res){
+                    if (res.status === 419) { location.reload(); return; }
+                    if (window.twShowToast) window.twShowToast('SMS history cleared');
+                    location.href = "{{ route('dashboard') }}";
+                }).catch(function(){
+                    if (window.twShowToast) window.twShowToast('Clear failed');
+                });
+            });
+        })();
+    </script>
 </x-app-layout>

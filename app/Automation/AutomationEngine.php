@@ -3,6 +3,7 @@
 namespace App\Automation;
 
 use App\Automation\Rules\TenDayPostingRule;
+use App\Automation\Rules\MarriageLicenseReleaseRule;
 use App\Models\Service;
 use App\Services\SmsService;
 
@@ -51,10 +52,9 @@ class AutomationEngine
             $rules[] = new TenDayPostingRule($this->smsService);
         }
 
-        // Future mappings can be added here
-        // if ($service->service_type === 'Application for Marriage License') {
-        //     $rules[] = new TenDayPostingRule($this->smsService);
-        // }
+        if ($service->service_type === 'Application for Marriage License') {
+            $rules[] = new MarriageLicenseReleaseRule($this->smsService);
+        }
 
         return $rules;
     }

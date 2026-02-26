@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Service;
 use App\Models\ServiceStatusLog;
 use App\Models\SmsTemplate;
+use App\Models\SmsMessage;
 use App\Services\SmsService;
 use App\Automation\AutomationEngine;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -32,19 +34,19 @@ class ServiceController extends Controller
             return ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
         }
         if ($type === 'Endorsement for Negative PSA - Positive LCRO') {
-            return ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+            return ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
         }
         if ($type === 'Endorsement for Blurred PSA - Clear LCRO File') {
-            return ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+            return ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
         }
         if ($type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
-            return ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'];
+            return ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
         }
         if ($type === 'Petitions filed under RA 9048 - Clerical Error') {
-            return ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
+            return ['Drafted','For Filing','Posted','Sent to PSA','Affirmed','Impugned'];
         }
         if ($type === 'Petitions filed under RA 9048 & RA 10172') {
-            return ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Published','Decision Rendered','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'];
+            return ['Drafted','For Filing','Posted','Sent to PSA','Affirmed','Impugned'];
         }
         return $default;
     }
@@ -156,6 +158,7 @@ class ServiceController extends Controller
                 'service_id' => $svc->id,
                 'status' => 'Filed',
                 'note' => null,
+                'user_id' => optional(auth()->user())->id,
             ]);
         }
 
@@ -195,6 +198,7 @@ class ServiceController extends Controller
                 'service_id' => $service->id,
                 'status' => $validated['status'],
                 'note' => null,
+                'user_id' => optional(auth()->user())->id,
             ]);
         }
         if ($previousStatus !== 'Paid' && $validated['status'] === 'Paid') {
@@ -246,8 +250,11 @@ class ServiceController extends Controller
 
     public function destroy(Service $service): RedirectResponse
     {
-        $service->forceDelete();
-        return redirect()->route('services.index')->with('status', 'Service entry deleted');
+        $service->delete();
+        return redirect()->route('services.index')
+            ->with('status', 'Service entry deleted')
+            ->with('undo_id', $service->id)
+            ->with('undo_type', 'service');
     }
 
     public function restore($id): RedirectResponse
@@ -276,29 +283,51 @@ class ServiceController extends Controller
     }
     public function bulkUploadTemplate()
     {
-        $content = "citizen_name,mobile_number,service_type,notes\n";
-        $content .= "Juan Dela Cruz,09171234567,Application for Marriage License,\n";
-        $content .= "Maria Santos,09181234567,Petitions filed under RA 9048 - Clerical Error,Needs assistance\n";
-        return response($content, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename=\"services_template.csv\"',
+        $headers = ['citizen_name','mobile_number','service_type','notes'];
+        $rows = [
+            ['Juan Dela Cruz','09171234567','Application for Marriage License',''],
+            ['Maria Santos','09181234567','Petitions filed under RA 9048 - Clerical Error','Needs assistance'],
+        ];
+        if (!class_exists('\\ZipArchive')) {
+            $xml = $this->generateExcelXml($headers, $rows);
+            return response($xml, 200, [
+                'Content-Type' => 'application/vnd.ms-excel',
+                'Content-Disposition' => 'attachment; filename=services_template.xls',
+            ]);
+        }
+        $binary = $this->generateXlsx($headers, $rows);
+        return response($binary, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename=services_template.xlsx',
         ]);
     }
     public function bulkUploadStore(Request $request): RedirectResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls'],
         ]);
         $file = $request->file('file');
         $path = $file->getRealPath();
-        $fh = fopen($path, 'r');
-        $header = fgetcsv($fh);
+        $ext = strtolower($file->getClientOriginalExtension() ?? '');
+        if ($ext === 'xlsx') {
+            [$header, $rows] = $this->parseXlsx($path);
+            if ($header === null) {
+                return redirect()->route('services.bulk-upload.form')->with('status', 'Invalid Excel file or Excel support not available');
+            }
+        } elseif ($ext === 'xls') {
+            [$header, $rows] = $this->parseExcelXml($path);
+            if ($header === null) {
+                return redirect()->route('services.bulk-upload.form')->with('status', 'Invalid Excel XML file');
+            }
+        } else {
+            return redirect()->route('services.bulk-upload.form')->with('status', 'Unsupported Excel format');
+        }
         $expected = ['citizen_name','mobile_number','service_type','notes'];
         $map = [];
         foreach ($expected as $col) {
             $idx = array_search($col, $header ?? []);
             if ($idx === false) {
-                return redirect()->route('services.bulk-upload.form')->with('status', 'Invalid CSV headers');
+                return redirect()->route('services.bulk-upload.form')->with('status', 'Invalid Excel headers');
             }
             $map[$col] = $idx;
         }
@@ -314,7 +343,7 @@ class ServiceController extends Controller
         }
         $created = 0;
         $skipped = 0;
-        while (($row = fgetcsv($fh)) !== false) {
+        foreach ($rows as $row) {
             $name = trim($row[$map['citizen_name']] ?? '');
             $mobile = trim($row[$map['mobile_number']] ?? '');
             $stype = trim($row[$map['service_type']] ?? '');
@@ -347,8 +376,260 @@ class ServiceController extends Controller
             }
             $created++;
         }
-        fclose($fh);
         return redirect()->route('services.index')->with('status', 'Bulk upload created: '.$created.'. Skipped: '.$skipped);
+    }
+
+    private function parseXlsx(string $path): array
+    {
+        if (!class_exists('\\ZipArchive')) {
+            return [null, []];
+        }
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) {
+            return [null, []];
+        }
+        $sheetXml = null;
+        $sharedStringsXml = null;
+        // Prefer standard paths
+        if ($zip->locateName('xl/worksheets/sheet1.xml') !== false) {
+            $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        } else {
+            // Fallback to first sheet file
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                if (str_starts_with($stat['name'], 'xl/worksheets/sheet') && str_ends_with($stat['name'], '.xml')) {
+                    $sheetXml = $zip->getFromIndex($i);
+                    break;
+                }
+            }
+        }
+        if ($zip->locateName('xl/sharedStrings.xml') !== false) {
+            $sharedStringsXml = $zip->getFromName('xl/sharedStrings.xml');
+        }
+        $zip->close();
+        if (!$sheetXml) {
+            return [null, []];
+        }
+        $shared = [];
+        if ($sharedStringsXml) {
+            $sx = simplexml_load_string($sharedStringsXml);
+            $ns = $sx->getNamespaces(true);
+            foreach ($sx->si as $si) {
+                $text = '';
+                if (isset($si->t)) {
+                    $text = (string) $si->t;
+                } else {
+                    foreach ($si->r as $r) {
+                        $text .= (string) $r->t;
+                    }
+                }
+                $shared[] = $text;
+            }
+        }
+        $xml = simplexml_load_string($sheetXml);
+        $rows = [];
+        $headers = [];
+        $rowIndex = 0;
+        foreach ($xml->sheetData->row as $row) {
+            $rowIndex++;
+            $cells = [];
+            foreach ($row->c as $c) {
+                $ref = (string) $c['r'];
+                $colLetters = preg_replace('/\\d+/', '', $ref);
+                $colIndex = $this->colLettersToIndex($colLetters);
+                $type = (string) $c['t'];
+                $value = null;
+                if ($type === 's') {
+                    $idx = isset($c->v) ? intval((string) $c->v) : 0;
+                    $value = $shared[$idx] ?? '';
+                } elseif ($type === 'inlineStr') {
+                    $value = isset($c->is->t) ? (string) $c->is->t : '';
+                } else {
+                    $value = isset($c->v) ? (string) $c->v : '';
+                }
+                $cells[$colIndex] = $value;
+            }
+            $maxIndex = empty($cells) ? -1 : max(array_keys($cells));
+            $rowValues = [];
+            for ($i = 0; $i <= $maxIndex; $i++) {
+                $rowValues[$i] = $cells[$i] ?? '';
+            }
+            if ($rowIndex === 1) {
+                $headers = array_map(function($s){ return strtolower(trim($s)); }, $rowValues);
+            } else {
+                $rows[] = $rowValues;
+            }
+        }
+        return [$headers, $rows];
+    }
+    private function parseExcelXml(string $path): array
+    {
+        $content = @file_get_contents($path);
+        if ($content === false || $content === '') {
+            return [null, []];
+        }
+        $xml = @simplexml_load_string($content);
+        if (!$xml) {
+            return [null, []];
+        }
+        $rows = [];
+        $headers = [];
+        $worksheetNodes = $xml->xpath('//*[local-name()="Worksheet"]');
+        if (!$worksheetNodes || !isset($worksheetNodes[0])) {
+            return [null, []];
+        }
+        $tableNodes = $worksheetNodes[0]->xpath('.//*[local-name()="Table"]');
+        if (!$tableNodes || !isset($tableNodes[0])) {
+            return [null, []];
+        }
+        $rowNodes = $tableNodes[0]->xpath('.//*[local-name()="Row"]');
+        $rowIndex = 0;
+        foreach ($rowNodes as $rowNode) {
+            $rowIndex++;
+            $cells = [];
+            $colIndex = 0;
+            $cellNodes = $rowNode->xpath('.//*[local-name()="Cell"]');
+            foreach ($cellNodes as $cell) {
+                $attrs = $cell->attributes();
+                $idxAttr = null;
+                foreach ($attrs as $k => $v) {
+                    if (strtolower((string) $k) === 'index') {
+                        $idxAttr = intval((string) $v);
+                        break;
+                    }
+                }
+                if ($idxAttr !== null && $idxAttr > 0) {
+                    $colIndex = $idxAttr - 1;
+                }
+                $dataNodes = $cell->xpath('.//*[local-name()="Data"]');
+                $val = '';
+                if ($dataNodes && isset($dataNodes[0])) {
+                    $val = (string) $dataNodes[0];
+                }
+                $cells[$colIndex] = $val;
+                $colIndex++;
+            }
+            $maxIndex = empty($cells) ? -1 : max(array_keys($cells));
+            $rowValues = [];
+            for ($i = 0; $i <= $maxIndex; $i++) {
+                $rowValues[$i] = $cells[$i] ?? '';
+            }
+            if ($rowIndex === 1) {
+                $headers = array_map(function($s){ return strtolower(trim($s)); }, $rowValues);
+            } else {
+                $rows[] = $rowValues;
+            }
+        }
+        return [$headers, $rows];
+    }
+    private function colLettersToIndex(string $letters): int
+    {
+        $letters = strtoupper($letters);
+        $len = strlen($letters);
+        $num = 0;
+        for ($i = 0; $i < $len; $i++) {
+            $num = $num * 26 + (ord($letters[$i]) - 64);
+        }
+        return $num - 1;
+    }
+    private function generateXlsx(array $headers, array $rows): string
+    {
+        $all = array_values($headers);
+        foreach ($rows as $r) {
+            foreach ($r as $v) {
+                $all[] = (string) $v;
+            }
+        }
+        $unique = array_values(array_unique($all));
+        $map = array_flip($unique);
+        $totalInstances = count($all);
+        $zip = new \ZipArchive();
+        $tmp = tempnam(sys_get_temp_dir(), 'xlsx');
+        $zip->open($tmp, \ZipArchive::OVERWRITE);
+        $contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>';
+        $rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>';
+        $workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>';
+        $workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+        $sharedStrings = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'.$totalInstances.'" uniqueCount="'.count($unique).'">';
+        foreach ($unique as $s) {
+            $escaped = htmlspecialchars($s, ENT_XML1 | ENT_COMPAT, 'UTF-8');
+            $sharedStrings .= '<si><t>'.$escaped.'</t></si>';
+        }
+        $sharedStrings .= '</sst>';
+        $styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+        $zip->addFromString('[Content_Types].xml', $contentTypes);
+        $zip->addFromString('_rels/.rels', $rels);
+        $zip->addFromString('xl/workbook.xml', $workbook);
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $workbookRels);
+        $zip->addFromString('xl/sharedStrings.xml', $sharedStrings);
+        $zip->addFromString('xl/styles.xml', $styles);
+        $lastColLetters = $this->indexToColLetters(count($headers) - 1);
+        $totalRows = 1 + count($rows);
+        $dimension = 'A1:'.$lastColLetters.$totalRows;
+        $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="'.$dimension.'"/><sheetData>';
+        $rowNum = 1;
+        $sheetXml .= '<row r="'.$rowNum.'">';
+        for ($i = 0; $i < count($headers); $i++) {
+            $col = $this->indexToColLetters($i);
+            $val = $headers[$i];
+            $idx = $map[$val] ?? 0;
+            $sheetXml .= '<c r="'.$col.$rowNum.'" t="s"><v>'.$idx.'</v></c>';
+        }
+        $sheetXml .= '</row>';
+        foreach ($rows as $r) {
+            $rowNum++;
+            $sheetXml .= '<row r="'.$rowNum.'">';
+            for ($i = 0; $i < count($r); $i++) {
+                $col = $this->indexToColLetters($i);
+                $val = (string) $r[$i];
+                $idx = $map[$val] ?? 0;
+                $sheetXml .= '<c r="'.$col.$rowNum.'" t="s"><v>'.$idx.'</v></c>';
+            }
+            $sheetXml .= '</row>';
+        }
+        $sheetXml .= '</sheetData></worksheet>';
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+        $created = gmdate('Y-m-d\TH:i:s\Z');
+        $coreProps = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>services_template</dc:title><dc:creator>MCRO SMS System</dc:creator><cp:lastModifiedBy>MCRO SMS System</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">'.$created.'</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">'.$created.'</dcterms:modified></cp:coreProperties>';
+        $appProps = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Microsoft Excel</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop><Company></Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0000</AppVersion></Properties>';
+        $zip->addFromString('docProps/core.xml', $coreProps);
+        $zip->addFromString('docProps/app.xml', $appProps);
+        $zip->close();
+        $binary = file_get_contents($tmp);
+        @unlink($tmp);
+        return $binary;
+    }
+    private function indexToColLetters(int $index): string
+    {
+        $letters = '';
+        $index += 1;
+        while ($index > 0) {
+            $mod = ($index - 1) % 26;
+            $letters = chr(65 + $mod).$letters;
+            $index = intdiv(($index - 1), 26);
+        }
+        return $letters;
+    }
+    private function generateExcelXml(array $headers, array $rows): string
+    {
+        $xml = '<?xml version="1.0"?>';
+        $xml .= '<?mso-application progid="Excel.Sheet"?>';
+        $xml .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
+        $xml .= '<Worksheet ss:Name="Sheet1"><Table>';
+        $xml .= '<Row>';
+        foreach ($headers as $h) {
+            $xml .= '<Cell><Data ss:Type="String">'.htmlspecialchars($h, ENT_XML1 | ENT_COMPAT, 'UTF-8').'</Data></Cell>';
+        }
+        $xml .= '</Row>';
+        foreach ($rows as $r) {
+            $xml .= '<Row>';
+            foreach ($r as $v) {
+                $xml .= '<Cell><Data ss:Type="String">'.htmlspecialchars((string) $v, ENT_XML1 | ENT_COMPAT, 'UTF-8').'</Data></Cell>';
+            }
+            $xml .= '</Row>';
+        }
+        $xml .= '</Table></Worksheet></Workbook>';
+        return $xml;
     }
     public function scheduled(Request $request): View
     {
@@ -357,8 +638,8 @@ class ServiceController extends Controller
         foreach ($services as $s) {
             if ($s->service_type === 'Application for Marriage License') {
                 if ($s->posting_start_date) {
-                    $due = $s->posting_start_date->copy()->addDays(10);
-                    if (!$s->sms_ready_sent) {
+                    $due = $s->posting_start_date->copy()->addWeekdays(10);
+                    if (!$s->sms_release_sent && $s->status !== 'Released') {
                         $items[] = [
                             'due' => $due,
                             'service' => $s,
@@ -368,7 +649,7 @@ class ServiceController extends Controller
                     }
                 }
             }
-            if ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
+            if (in_array($s->service_type, ['Petitions filed under RA 9048 - Clerical Error','Petitions filed under RA 9048 & RA 10172'])) {
                 if ($s->posting_start_date) {
                     $due = $s->posting_start_date->copy()->addWeekdays(10);
                     $items[] = [
@@ -376,19 +657,6 @@ class ServiceController extends Controller
                         'service' => $s,
                         'label' => 'Posting ends (10 business days)',
                         'event' => 'posting_end',
-                    ];
-                }
-            }
-            if ($s->service_type === 'Petitions filed under RA 9048 & RA 10172') {
-                $published = $s->statusLogs->where('status', 'Published')->last();
-                if ($published) {
-                    $pubAt = Carbon::parse($published->created_at);
-                    $due = $pubAt->copy()->addWeekdays(7);
-                    $items[] = [
-                        'due' => $due,
-                        'service' => $s,
-                        'label' => 'Decision window (7 business days)',
-                        'event' => 'decision_window',
                     ];
                 }
             }
@@ -406,7 +674,11 @@ class ServiceController extends Controller
         $todayCount = count(array_filter($filtered, function ($it) use ($today) { return $it['due']->isSameDay($today); }));
         $monthCount = count(array_filter($filtered, function ($it) use ($today, $month) { return $it['due']->gte($today) && $it['due']->lte($month); }));
         $overdueCount = count(array_filter($filtered, function ($it) use ($today) { return $it['due']->lt($today); }));
-        $types = Service::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
+        $types = collect($items)
+            ->map(function($it){ return $it['service']->service_type; })
+            ->unique()
+            ->sort()
+            ->values();
         return view('scheduled.index', [
             'items' => $filtered,
             'types' => $types,
@@ -424,11 +696,11 @@ class ServiceController extends Controller
             'Application for Marriage License' => ['Posted'],
             'Request for PSA documents through BREQS' => ['Ready for Pickup'],
             'Delayed Registration' => ['Under Verification','Inconsistent','Consistent'],
-            'Endorsement for Negative PSA - Positive LCRO' => ['Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback'],
-            'Endorsement for Blurred PSA - Clear LCRO File' => ['Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback'],
-            'Endorsement of Legal Instrument & MC 2010-04 & Court Order' => ['Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback'],
-            'Petitions filed under RA 9048 - Clerical Error' => ['Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Affirmed','PSA Impugned','Resent to PSA Legal Services'],
-            'Petitions filed under RA 9048 & RA 10172' => ['Petition Ready for Filing','Filed','Published','Sent to PSA Legal Services','PSA Affirmed','PSA Impugned','Resent to PSA Legal Services'],
+            'Endorsement for Negative PSA - Positive LCRO' => ['Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'],
+            'Endorsement for Blurred PSA - Clear LCRO File' => ['Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'],
+            'Endorsement of Legal Instrument & MC 2010-04 & Court Order' => ['Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'],
+            'Petitions filed under RA 9048 - Clerical Error' => ['For Filing','Posted','Sent to PSA','Affirmed','Impugned'],
+            'Petitions filed under RA 9048 & RA 10172' => ['For Filing','Posted','Sent to PSA','Affirmed','Impugned'],
         ];
         $today = Carbon::today();
         $monthStart = $today->copy()->subDays(30)->startOfDay();
@@ -479,6 +751,9 @@ class ServiceController extends Controller
         $countToday = count($schedToday);
         $countWeek = count($schedWeek);
         $countMonth = count($schedMonth);
+        $recentSms = Schema::hasTable('sms_messages')
+            ? SmsMessage::with('service')->orderBy('created_at', 'desc')->limit(20)->get()
+            : collect();
         return view('dashboard', array_merge($data, [
             'messagesToday' => $messagesToday,
             'messages30Days' => $messages30Days,
@@ -493,6 +768,7 @@ class ServiceController extends Controller
             'countMonth' => $countMonth,
             'dailyCounts' => $dailyCounts,
             'maxDaily' => $maxDaily,
+            'recentSms' => $recentSms,
         ]));
     }
 
@@ -519,6 +795,7 @@ class ServiceController extends Controller
                 'service_id' => $service->id,
                 'status' => $validated['status'],
                 'note' => null,
+                'user_id' => optional(auth()->user())->id,
             ]);
         }
         if ($prev !== 'Paid' && $validated['status'] === 'Paid') {
@@ -565,13 +842,13 @@ class ServiceController extends Controller
             if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                 $this->sms->send($service, 'psa_sent');
             }
-            if ($prev !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+            if ($prev !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
                 $this->sms->send($service, 'psa_feedback_received');
             }
             if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
                 $this->sms->send($service, 'psa_resent_for_processing');
             }
-            if ($prev !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$service->sms_ready_sent) {
+            if ($prev !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$service->sms_ready_sent) {
                 $this->sms->send($service, 'psa_no_feedback_uploaded');
                 $service->sms_ready_sent = true;
                 $service->save();
@@ -581,13 +858,13 @@ class ServiceController extends Controller
             if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                 $this->sms->send($service, 'psa_sent');
             }
-            if ($prev !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+            if ($prev !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
                 $this->sms->send($service, 'psa_feedback_received');
             }
             if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
                 $this->sms->send($service, 'psa_resent_for_processing');
             }
-            if ($prev !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$service->sms_ready_sent) {
+            if ($prev !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$service->sms_ready_sent) {
                 $this->sms->send($service, 'psa_no_feedback_uploaded');
                 $service->sms_ready_sent = true;
                 $service->save();
@@ -597,68 +874,56 @@ class ServiceController extends Controller
             if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                 $this->sms->send($service, 'psa_sent');
             }
-            if ($prev !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+            if ($prev !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
                 $this->sms->send($service, 'psa_feedback_received');
             }
             if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
                 $this->sms->send($service, 'psa_resent_for_processing');
             }
-            if ($prev !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$service->sms_ready_sent) {
+            if ($prev !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$service->sms_ready_sent) {
                 $this->sms->send($service, 'psa_no_feedback_uploaded');
                 $service->sms_ready_sent = true;
                 $service->save();
             }
         }
         if ($service->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
-            if ($prev !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+            if ($prev !== 'For Filing' && $validated['status'] === 'For Filing') {
                 $this->sms->send($service, 'petition_ready_for_filing');
             }
-            if ($prev !== 'Filed' && $validated['status'] === 'Filed' && !$service->sms_posting_sent) {
+            if ($prev !== 'Posted' && $validated['status'] === 'Posted' && !$service->sms_posting_sent) {
                 $service->posting_start_date = Carbon::today()->nextWeekday();
                 $this->sms->send($service, 'petition_ready_for_posting');
                 $service->sms_posting_sent = true;
                 $service->save();
             }
-            if ($prev !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+            if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                 $this->sms->send($service, 'sent_to_psa_legal');
             }
-            if ($prev !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+            if ($prev !== 'Affirmed' && $validated['status'] === 'Affirmed') {
                 $this->sms->send($service, 'psa_affirmed');
             }
-            if ($prev !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+            if ($prev !== 'Impugned' && $validated['status'] === 'Impugned') {
                 $this->sms->send($service, 'psa_impugned');
-            }
-            if ($prev !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
-                $this->sms->send($service, 'psa_resent_for_review');
             }
         }
         if ($service->service_type === 'Petitions filed under RA 9048 & RA 10172') {
-            if ($prev !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+            if ($prev !== 'For Filing' && $validated['status'] === 'For Filing') {
                 $this->sms->send($service, 'petition_ready_for_filing');
             }
-            if ($prev !== 'Filed' && $validated['status'] === 'Filed' && !$service->sms_posting_sent) {
+            if ($prev !== 'Posted' && $validated['status'] === 'Posted' && !$service->sms_posting_sent) {
                 $service->posting_start_date = Carbon::today()->nextWeekday();
                 $this->sms->send($service, 'petition_ready_for_posting');
                 $service->sms_posting_sent = true;
                 $service->save();
             }
-            if ($prev !== 'Published' && $validated['status'] === 'Published') {
-                $this->sms->send($service, 'petition_published');
-                $due = Carbon::today()->addWeekdays(7)->toDateString();
-                $service->notes = trim(($service->notes ? $service->notes . "\n" : '') . 'Decision expected by ' . $due);
-                $service->save();
-            }
-            if ($prev !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+            if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                 $this->sms->send($service, 'sent_to_psa_legal');
             }
-            if ($prev !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+            if ($prev !== 'Affirmed' && $validated['status'] === 'Affirmed') {
                 $this->sms->send($service, 'psa_affirmed');
             }
-            if ($prev !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+            if ($prev !== 'Impugned' && $validated['status'] === 'Impugned') {
                 $this->sms->send($service, 'psa_impugned');
-            }
-            if ($prev !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
-                $this->sms->send($service, 'psa_resent_for_review');
             }
         }
         // Apply automation rules on status change
@@ -697,6 +962,7 @@ class ServiceController extends Controller
                     'service_id' => $svc->id,
                     'status' => $validated['status'],
                     'note' => null,
+                    'user_id' => optional(auth()->user())->id,
                 ]);
             }
             if ($prevStatus !== 'Paid' && $validated['status'] === 'Paid') {
@@ -743,13 +1009,13 @@ class ServiceController extends Controller
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                     $this->sms->send($svc, 'psa_sent');
                 }
-                if ($prevStatus !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                if ($prevStatus !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
                     $this->sms->send($svc, 'psa_feedback_received');
                 }
                 if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
                     $this->sms->send($svc, 'psa_resent_for_processing');
                 }
-                if ($prevStatus !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$svc->sms_ready_sent) {
+                if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
                     $this->sms->send($svc, 'psa_no_feedback_uploaded');
                     $svc->sms_ready_sent = true;
                     $svc->save();
@@ -759,13 +1025,13 @@ class ServiceController extends Controller
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                     $this->sms->send($svc, 'psa_sent');
                 }
-                if ($prevStatus !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                if ($prevStatus !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
                     $this->sms->send($svc, 'psa_feedback_received');
                 }
                 if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
                     $this->sms->send($svc, 'psa_resent_for_processing');
                 }
-                if ($prevStatus !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$svc->sms_ready_sent) {
+                if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
                     $this->sms->send($svc, 'psa_no_feedback_uploaded');
                     $svc->sms_ready_sent = true;
                     $svc->save();
@@ -775,68 +1041,56 @@ class ServiceController extends Controller
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                     $this->sms->send($svc, 'psa_sent');
                 }
-                if ($prevStatus !== 'PSA Feedback' && $validated['status'] === 'PSA Feedback') {
+                if ($prevStatus !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
                     $this->sms->send($svc, 'psa_feedback_received');
                 }
                 if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
                     $this->sms->send($svc, 'psa_resent_for_processing');
                 }
-                if ($prevStatus !== 'PSA No Feedback' && $validated['status'] === 'PSA No Feedback' && !$svc->sms_ready_sent) {
+                if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
                     $this->sms->send($svc, 'psa_no_feedback_uploaded');
                     $svc->sms_ready_sent = true;
                     $svc->save();
                 }
             }
             if ($svc->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
-                if ($prevStatus !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+                if ($prevStatus !== 'For Filing' && $validated['status'] === 'For Filing') {
                     $this->sms->send($svc, 'petition_ready_for_filing');
                 }
-                if ($prevStatus !== 'Filed' && $validated['status'] === 'Filed' && !$svc->sms_posting_sent) {
+                if ($prevStatus !== 'Posted' && $validated['status'] === 'Posted' && !$svc->sms_posting_sent) {
                     $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
                     $this->sms->send($svc, 'petition_ready_for_posting');
                     $svc->sms_posting_sent = true;
                     $svc->save();
                 }
-                if ($prevStatus !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+                if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                     $this->sms->send($svc, 'sent_to_psa_legal');
                 }
-                if ($prevStatus !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+                if ($prevStatus !== 'Affirmed' && $validated['status'] === 'Affirmed') {
                     $this->sms->send($svc, 'psa_affirmed');
                 }
-                if ($prevStatus !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+                if ($prevStatus !== 'Impugned' && $validated['status'] === 'Impugned') {
                     $this->sms->send($svc, 'psa_impugned');
-                }
-                if ($prevStatus !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
-                    $this->sms->send($svc, 'psa_resent_for_review');
                 }
             }
             if ($svc->service_type === 'Petitions filed under RA 9048 & RA 10172') {
-                if ($prevStatus !== 'Petition Ready for Filing' && $validated['status'] === 'Petition Ready for Filing') {
+                if ($prevStatus !== 'For Filing' && $validated['status'] === 'For Filing') {
                     $this->sms->send($svc, 'petition_ready_for_filing');
                 }
-                if ($prevStatus !== 'Filed' && $validated['status'] === 'Filed' && !$svc->sms_posting_sent) {
+                if ($prevStatus !== 'Posted' && $validated['status'] === 'Posted' && !$svc->sms_posting_sent) {
                     $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
                     $this->sms->send($svc, 'petition_ready_for_posting');
                     $svc->sms_posting_sent = true;
                     $svc->save();
                 }
-                if ($prevStatus !== 'Published' && $validated['status'] === 'Published') {
-                    $this->sms->send($svc, 'petition_published');
-                    $due = \Illuminate\Support\Carbon::today()->addWeekdays(7)->toDateString();
-                    $svc->notes = trim(($svc->notes ? $svc->notes . "\n" : '') . 'Decision expected by ' . $due);
-                    $svc->save();
-                }
-                if ($prevStatus !== 'Sent to PSA Legal Services' && $validated['status'] === 'Sent to PSA Legal Services') {
+                if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
                     $this->sms->send($svc, 'sent_to_psa_legal');
                 }
-                if ($prevStatus !== 'PSA Affirmed' && $validated['status'] === 'PSA Affirmed') {
+                if ($prevStatus !== 'Affirmed' && $validated['status'] === 'Affirmed') {
                     $this->sms->send($svc, 'psa_affirmed');
                 }
-                if ($prevStatus !== 'PSA Impugned' && $validated['status'] === 'PSA Impugned') {
+                if ($prevStatus !== 'Impugned' && $validated['status'] === 'Impugned') {
                     $this->sms->send($svc, 'psa_impugned');
-                }
-                if ($prevStatus !== 'Resent to PSA Legal Services' && $validated['status'] === 'Resent to PSA Legal Services') {
-                    $this->sms->send($svc, 'psa_resent_for_review');
                 }
             }
             $updatedCount++;
@@ -846,5 +1100,14 @@ class ServiceController extends Controller
             $this->automation->handleStatusChange($svc);
         }
         return redirect()->route('services.index')->with('status', 'Updated: '.$updatedCount.'. Skipped: '.$skippedCount);
+    }
+
+    public function clearSmsHistory(): RedirectResponse
+    {
+        if (!\Schema::hasTable('sms_messages')) {
+            return redirect()->route('dashboard')->with('status', 'SMS history table not found');
+        }
+        \App\Models\SmsMessage::query()->delete();
+        return redirect()->route('dashboard')->with('status', 'SMS history cleared');
     }
 }

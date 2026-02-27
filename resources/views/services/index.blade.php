@@ -8,7 +8,7 @@
                     <input type="hidden" name="status" value="{{ $status ?? '' }}">
                     <input type="hidden" name="sort" value="{{ $sort ?? 'updated' }}">
                     <input type="hidden" name="direction" value="{{ $direction ?? 'desc' }}">
-                    <input type="text" name="name" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full max-w-md text-center" placeholder="Search name or reference" id="header_search">
+                    <input type="text" name="name" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full max-w-md text-center" placeholder="Search name or reference" id="header_search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
                 </form>
             </div>
             <a href="{{ route('services.bulk-upload.form') }}" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
@@ -16,6 +16,13 @@
                     <path d="M2 2h12v3H2V2zm0 4h12v3H2V6zm0 4h12v2H2v-2z"/>
                 </svg>
                 <span>Bulk Upload</span>
+            </a>
+            <a href="{{ route('services.export') }}" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M8 1a1 1 0 011 1v6.586l2.146-2.147a1 1 0 111.415 1.415l-3.853 3.853a1 1 0 01-1.415 0L2.44 8.854a1 1 0 111.415-1.415L6 9.586V2a1 1 0 112 0z"/>
+                    <path d="M2 13a1 1 0 011-1h10a1 1 0 110 2H3a1 1 0 01-1-1z"/>
+                </svg>
+                <span>Export</span>
             </a>
             <a href="{{ route('services.create') }}" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -44,7 +51,7 @@
                 <form id="filter_form" method="GET" action="{{ route('services.index') }}" class="px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="w-full md:hidden">
                         <label for="filter_search_mobile" class="sr-only">Search</label>
-                        <input type="text" id="filter_search_mobile" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full text-sm" placeholder="Search name or reference">
+                        <input type="text" id="filter_search_mobile" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full text-sm" placeholder="Search name or reference" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
                     </div>
                     <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
                         <div class="w-full md:w-48">
@@ -439,6 +446,14 @@
     
     <script>
         (function(){
+            document.addEventListener('DOMContentLoaded', function(){
+                var qs = new URLSearchParams(location.search);
+                var n = qs.get('name') || '';
+                var hs = document.getElementById('header_search');
+                var ms = document.getElementById('filter_search_mobile');
+                if (hs) hs.value = n;
+                if (ms) ms.value = n;
+            });
             function bindSelectAll(){
                 var selectAll = document.getElementById('select_all');
                 var rowCheckboxes = document.querySelectorAll('.row-select');
@@ -727,15 +742,42 @@
                 });
             }
             function updateResults(){
-                var form = document.getElementById('filter_form');
+                var base = "{{ route('services.index') }}";
+                var typeSelect = document.getElementById('filter_service_type');
+                var statusSelect = document.getElementById('filter_status');
+                var sortSelect = document.querySelector('select[name=\"sort\"]');
+                var directionSelect = document.querySelector('select[name=\"direction\"]');
                 var headerSearch = document.getElementById('header_search');
                 var mobileSearch = document.getElementById('filter_search_mobile');
-                var filterName = document.getElementById('filter_name');
                 var q = '';
                 if (headerSearch) q = headerSearch.value || '';
                 if (!q && mobileSearch) q = mobileSearch.value || '';
-                if (filterName) filterName.value = q;
-                if (form) form.submit();
+                var params = new URLSearchParams();
+                var typeVal = typeSelect ? (typeSelect.value || '') : '';
+                var statusVal = statusSelect ? (statusSelect.value || '') : '';
+                var sortVal = sortSelect ? (sortSelect.value || '') : '';
+                var dirVal = directionSelect ? (directionSelect.value || '') : '';
+                if (typeVal) params.set('service_type', typeVal);
+                if (statusVal) params.set('status', statusVal);
+                if (sortVal) params.set('sort', sortVal);
+                if (dirVal) params.set('direction', dirVal);
+                if (q.trim() !== '') params.set('name', q.trim());
+                var url = base + (params.toString() ? ('?' + params.toString()) : '');
+                history.replaceState({}, '', url);
+                fetch(url, { headers: { 'Accept': 'text/html' } })
+                    .then(function(res){
+                        if (res.status === 419) { location.reload(); return Promise.reject(); }
+                        return res.text();
+                    })
+                    .then(function(html){
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        var newContainer = doc.getElementById('services_table_container');
+                        var oldContainer = document.getElementById('services_table_container');
+                        if (newContainer && oldContainer) {
+                            oldContainer.innerHTML = newContainer.innerHTML;
+                            rebindRowClicks();
+                        }
+                    });
             }
             if (typeSelect && statusSelect) {
                 populateStatuses();

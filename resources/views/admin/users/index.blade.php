@@ -13,7 +13,7 @@
             <div class="bg-white border rounded-md mb-3">
                 <form id="adminUsersFilterForm" method="GET" action="{{ route('admin.users.index') }}" class="px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="w-full md:w-96">
-                        <input id="adminUsersQ" type="text" name="q" value="{{ $q ?? '' }}" class="border-gray-300 rounded-md w-full text-sm" placeholder="Search name or email">
+                        <input id="adminUsersQ" type="text" name="q" value="{{ $q ?? '' }}" class="border-gray-300 rounded-md w-full text-sm" placeholder="Search name or email" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
                     </div>
                     <div class="w-full md:w-48">
                         <select id="adminUsersRole" name="role" class="border-gray-300 rounded-md w-full text-sm">
@@ -94,7 +94,9 @@
             }
             function updateList(){
                 if (!form || !tbody) return;
-                var url = form.action + (form.action.indexOf('?') === -1 ? '?' : '&') + buildQuery();
+                var qs = buildQuery();
+                var url = form.action + (qs ? (form.action.indexOf('?') === -1 ? '?' : '&') + qs : '');
+                history.replaceState({}, '', url);
                 fetch(url, { headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(function(res){
                         if (res.status === 419) { location.reload(); return Promise.reject(); }

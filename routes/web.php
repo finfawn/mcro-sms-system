@@ -27,6 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/services/bulk-upload', [ServiceController::class, 'bulkUploadForm'])->name('services.bulk-upload.form');
     Route::post('/services/bulk-upload', [ServiceController::class, 'bulkUploadStore'])->name('services.bulk-upload.store');
     Route::get('/services/bulk-upload/template', [ServiceController::class, 'bulkUploadTemplate'])->name('services.bulk-upload.template');
+    Route::get('/services/export', [ServiceController::class, 'export'])->name('services.export');
     Route::get('/services/{service}', [ServiceController::class, 'show'])->name('services.show');
     Route::get('/services/{service}/edit', [ServiceController::class, 'edit'])->name('services.edit');
     Route::put('/services/{service}', [ServiceController::class, 'update'])->name('services.update');

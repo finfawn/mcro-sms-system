@@ -62,7 +62,7 @@ class ServiceController extends Controller
         $query = Service::query()->with('statusLogs');
         $serviceType = $request->query('service_type');
         $status = $request->query('status');
-        $name = $request->query('name');
+        $name = trim((string) $request->query('name', ''));
         $sort = $request->query('sort', 'updated');
         $direction = strtolower($request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
 
@@ -72,7 +72,7 @@ class ServiceController extends Controller
         if ($status) {
             $query->where('status', $status);
         }
-        if ($name) {
+        if ($name !== '') {
             $query->where(function($q) use ($name) {
                 $q->where('citizen_name', 'like', '%'.$name.'%')
                   ->orWhere('reference_no', 'like', '%'.$name.'%');
@@ -379,6 +379,40 @@ class ServiceController extends Controller
         return redirect()->route('services.index')->with('status', 'Bulk upload created: '.$created.'. Skipped: '.$skipped);
     }
 
+    public function export()
+    {
+        $services = Service::orderBy('updated_at', 'desc')->get();
+        $headers = ['Reference No','Citizen Name','Mobile Number','Service Type','Status','Payment Date','Posting Start Date','Release Date','Filed','Last Updated','Notes'];
+        $rows = [];
+        foreach ($services as $s) {
+            $rows[] = [
+                (string) $s->reference_no,
+                (string) $s->citizen_name,
+                (string) $s->mobile_number,
+                (string) $s->service_type,
+                (string) $s->status,
+                $s->payment_date ? $s->payment_date->toDateString() : '',
+                $s->posting_start_date ? $s->posting_start_date->toDateString() : '',
+                $s->release_date ? $s->release_date->toDateString() : '',
+                $s->created_at ? $s->created_at->format('Y-m-d H:i') : '',
+                $s->updated_at ? $s->updated_at->format('Y-m-d H:i') : '',
+                (string) ($s->notes ?? ''),
+            ];
+        }
+        $date = now()->format('Ymd_His');
+        $title = [
+            'REPUBLIC OF THE PHILIPPINES',
+            'PROVINCE OF BENGUET',
+            'MUNICIPALITY OF TUBLAY',
+            'OFFICE OF THE MUNICIPAL CIVIL REGISTRAR',
+        ];
+        $xml = $this->generateExcelXml($headers, $rows, $title);
+        return response($xml, 200, [
+            'Content-Type' => 'application/vnd.ms-excel',
+            'Content-Disposition' => 'attachment; filename=services_export_'.$date.'.xls',
+        ]);
+    }
+
     private function parseXlsx(string $path): array
     {
         if (!class_exists('\\ZipArchive')) {
@@ -610,17 +644,34 @@ class ServiceController extends Controller
         }
         return $letters;
     }
-    private function generateExcelXml(array $headers, array $rows): string
+    private function generateExcelXml(array $headers, array $rows, array $titleLines = []): string
     {
+        $cols = max(1, count($headers));
+        $mergeAcross = $cols - 1;
         $xml = '<?xml version="1.0"?>';
         $xml .= '<?mso-application progid="Excel.Sheet"?>';
         $xml .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
+        $xml .= '<Styles>';
+        $xml .= '<Style ss:ID="sHeader"><Alignment ss:Horizontal="Center"/><Font ss:Bold="1"/></Style>';
+        $xml .= '<Style ss:ID="sTh"><Font ss:Bold="1"/></Style>';
+        $xml .= '</Styles>';
         $xml .= '<Worksheet ss:Name="Sheet1"><Table>';
+        if (!empty($titleLines)) {
+            foreach ($titleLines as $line) {
+                $xml .= '<Row>';
+                $xml .= '<Cell ss:MergeAcross="'.$mergeAcross.'" ss:StyleID="sHeader"><Data ss:Type="String">'.htmlspecialchars($line, ENT_XML1 | ENT_COMPAT, 'UTF-8').'</Data></Cell>';
+                $xml .= '</Row>';
+            }
+            // spacer row
+            $xml .= '<Row><Cell ss:MergeAcross="'.$mergeAcross.'"><Data ss:Type="String"></Data></Cell></Row>';
+        }
+        // column headers
         $xml .= '<Row>';
         foreach ($headers as $h) {
-            $xml .= '<Cell><Data ss:Type="String">'.htmlspecialchars($h, ENT_XML1 | ENT_COMPAT, 'UTF-8').'</Data></Cell>';
+            $xml .= '<Cell ss:StyleID="sTh"><Data ss:Type="String">'.htmlspecialchars($h, ENT_XML1 | ENT_COMPAT, 'UTF-8').'</Data></Cell>';
         }
         $xml .= '</Row>';
+        // data rows
         foreach ($rows as $r) {
             $xml .= '<Row>';
             foreach ($r as $v) {

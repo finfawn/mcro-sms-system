@@ -35,6 +35,7 @@
                             </div>
                             <div class="text-2xl font-bold">{{ $messagesTotal ?? 0 }}</div>
                         </div>
+                        
                     </div>
                 </div>
             </div>
@@ -61,6 +62,7 @@
                     }
                 })();
             </script>
+            
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 px-4 pb-4">
                 <div class="rounded-md ring-1 ring-red-200 bg-gradient-to-b from-red-50 to-white">
                     <div class="px-3 py-2 bg-red-600 text-white text-sm font-medium flex items-center justify-between">
@@ -226,8 +228,16 @@
                                         <td class="px-3 py-2 text-gray-700">{{ $m->event_key ?? '—' }}</td>
                                         <td class="px-3 py-2 text-gray-700">{{ strtoupper($m->provider) }}</td>
                                         <td class="px-3 py-2">
-                                            @php $ok = $m->status === 'sent'; @endphp
-                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs {{ $ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $ok ? 'Sent' : 'Failed' }}</span>
+                                            @php
+                                                $prov = strtoupper($m->provider ?? '');
+                                                $st = $m->status ?? '';
+                                                $label = 'Failed';
+                                                $cls = 'bg-red-100 text-red-700';
+                                                if ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
+                                                elseif ($st === 'queued') { $label = 'Queued'; $cls = 'bg-yellow-100 text-yellow-700'; }
+                                                elseif ($st === 'sent') { $label = 'Sent'; $cls = 'bg-green-100 text-green-700'; }
+                                            @endphp
+                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs {{ $cls }}">{{ $label }}</span>
                                         </td>
                                     </tr>
                                 @empty
@@ -240,17 +250,23 @@
                     </div>
                     <div class="p-2 md:hidden space-y-2">
                         @forelse(($recentSms ?? []) as $m)
-                            @php
-                                $num = $m->to ?? '';
-                                $digits = preg_replace('/\D+/', '', $num);
-                                $prefix = str_starts_with($num, '+') ? '+' : '';
-                                $len = strlen($digits);
-                                $first = substr($digits, 0, min(2, $len));
-                                $last = $len >= 3 ? substr($digits, $len - 3, 3) : substr($digits, -$len);
-                                $middleLen = max(0, $len - strlen($first) - strlen($last));
-                                $masked = $prefix.$first.($middleLen ? str_repeat('•', $middleLen) : '').$last;
-                                $ok = $m->status === 'sent';
-                            @endphp
+                                @php
+                                    $num = $m->to ?? '';
+                                    $digits = preg_replace('/\D+/', '', $num);
+                                    $prefix = str_starts_with($num, '+') ? '+' : '';
+                                    $len = strlen($digits);
+                                    $first = substr($digits, 0, min(2, $len));
+                                    $last = $len >= 3 ? substr($digits, $len - 3, 3) : substr($digits, -$len);
+                                    $middleLen = max(0, $len - strlen($first) - strlen($last));
+                                    $masked = $prefix.$first.($middleLen ? str_repeat('•', $middleLen) : '').$last;
+                                    $prov = strtoupper($m->provider ?? '');
+                                    $st = $m->status ?? '';
+                                    $label = 'Failed';
+                                    $cls = 'bg-red-100 text-red-700';
+                                    if ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
+                                    elseif ($st === 'queued') { $label = 'Queued'; $cls = 'bg-yellow-100 text-yellow-700'; }
+                                    elseif ($st === 'sent') { $label = 'Sent'; $cls = 'bg-green-100 text-green-700'; }
+                                @endphp
                             <div class="bg-white border rounded-md p-3">
                                 <div class="flex items-start justify-between gap-2">
                                     <div>
@@ -260,7 +276,7 @@
                                             <div class="text-xs text-gray-700">{{ $m->service->service_type }}</div>
                                         @endif
                                     </div>
-                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs {{ $ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $ok ? 'Sent' : 'Failed' }}</span>
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs {{ $cls }}">{{ $label }}</span>
                                 </div>
                                 <div class="mt-1 text-xs text-gray-500">{{ $m->created_at->format('Y-m-d H:i') }}</div>
                                 <div class="mt-1 text-xs text-gray-700">{{ strtoupper($m->provider) }} · {{ $m->event_key ?? '—' }}</div>

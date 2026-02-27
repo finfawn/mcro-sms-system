@@ -18,7 +18,7 @@
                     </div>
                     <div>
                         <div class="text-sm font-medium text-gray-500">Status</div>
-                        <div class="text-gray-900">{{ $service->status }}</div>
+                        <div id="svcStatusDisplay" class="text-gray-900">{{ $service->status }}</div>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -54,14 +54,40 @@
                     </div>
                     <div>
                         <div class="text-sm font-medium text-gray-500">Last Updated</div>
-                        <div class="text-gray-900">{{ $service->updated_at->format('Y-m-d H:i') }}</div>
+                        <div id="svcUpdatedAtDisplay" class="text-gray-900">{{ $service->updated_at->format('Y-m-d H:i') }}</div>
                     </div>
                 </div>
                 <div>
                     <div class="text-sm font-medium text-gray-500">Notes</div>
-                    <div class="border rounded-md p-2 bg-gray-50 text-gray-900">{{ $service->notes ?? '—' }}</div>
+                    <div id="svcNotesDisplay" class="border rounded-md p-2 bg-gray-50 text-gray-900">{{ $service->notes ?? '—' }}</div>
                 </div>
             </div>
         </div>
     </div>
+    <script>
+        (function(){
+            var statusEl = document.getElementById('svcStatusDisplay');
+            var notesEl = document.getElementById('svcNotesDisplay');
+            var updatedEl = document.getElementById('svcUpdatedAtDisplay');
+            function refresh(){
+                fetch("{{ route('services.show', $service) }}", { headers: { 'Accept': 'text/html' } })
+                    .then(function(res){
+                        if (res.status === 419) { location.reload(); return Promise.reject(); }
+                        return res.text();
+                    }).then(function(html){
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        var ns = doc.getElementById('svcNotesDisplay');
+                        var ss = doc.getElementById('svcStatusDisplay');
+                        var us = doc.getElementById('svcUpdatedAtDisplay');
+                        if (ns && notesEl) notesEl.innerHTML = ns.innerHTML;
+                        if (ss && statusEl) statusEl.textContent = ss.textContent;
+                        if (us && updatedEl) updatedEl.textContent = us.textContent;
+                    });
+            }
+            document.addEventListener('visibilitychange', function(){
+                if (!document.hidden) refresh();
+            });
+            setInterval(refresh, 20000);
+        })();
+    </script>
 </x-app-layout>

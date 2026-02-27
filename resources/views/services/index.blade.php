@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="flex justify-between items-center px-4 sm:px-6 lg:px-8 pt-3">
-        <h2 class="text-base font-semibold text-gray-900">Service List</h2>
-        <div class="flex items-center gap-2 w-full">
+        <h2 class="text-base font-semibold text-gray-900 whitespace-nowrap flex-shrink-0">Service List</h2>
+        <div class="flex items-center gap-2 flex-1">
             <div class="flex-1 hidden sm:flex justify-center">
                 <form method="GET" action="{{ route('services.index') }}" class="flex items-center w-full justify-center">
                     <input type="hidden" name="service_type" value="{{ $serviceType ?? '' }}">
@@ -236,7 +236,17 @@
                                             @foreach($rowStatuses as $st)
                                                 @php
                                                     $idx = array_search($st, $rowStatuses);
-                                                    $disableBackwards = (!in_array($s->service_type, ['Endorsement for Negative PSA - Positive LCRO','Endorsement for Blurred PSA - Clear LCRO File','Endorsement of Legal Instrument & MC 2010-04 & Court Order','Petitions filed under RA 9048 - Clerical Error']));
+                                                    $allowBackTypes = [
+                                                        'Delayed Registration',
+                                                        'Frontline Service',
+                                                        'Request for PSA documents through BREQS',
+                                                        'Endorsement for Negative PSA - Positive LCRO',
+                                                        'Endorsement for Blurred PSA - Clear LCRO File',
+                                                        'Endorsement of Legal Instrument & MC 2010-04 & Court Order',
+                                                        'Petitions filed under RA 9048 - Clerical Error',
+                                                        'Petitions filed under RA 9048 & RA 10172',
+                                                    ];
+                                                    $disableBackwards = (!in_array($s->service_type, $allowBackTypes));
                                                     $disabled = $disableBackwards && ($idx !== false && $currentIndex !== false && $idx < $currentIndex);
                                                 @endphp
                                                 <option value="{{ $st }}" @selected($s->status === $st) @if($disabled) disabled @endif>{{ $st }}</option>
@@ -250,16 +260,18 @@
                                             <path d="M12.146 0.646a.5.5 0 01.708 0l2.5 2.5a.5.5 0 010 .708l-8.5 8.5-3 1a.5.5 0 01-.638-.638l1-3 8.5-8.5zM11.5 1.5l-8.5 8.5-.5 1.5 1.5-.5 8.5-8.5-1-1z"/>
                                         </svg>
                                     </a>
-                                    <form action="{{ route('services.destroy', $s) }}" method="POST" class="inline svc-delete-form">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="tw-pressable inline-flex items-center border rounded-md px-2 py-1 text-red-700 hover:bg-red-50" title="Delete" aria-label="Delete">
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                                <path d="M5.5 5.5a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5zm5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5z"/>
-                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4H2.5a1 1 0 110-2H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1zM4 4v9a1 1 0 001 1h6a1 1 0 001-1V4H4z"/>
-                                            </svg>
-                                        </button>
-                                    </form>
+                                    @if((Auth::user()->role ?? 'user') === 'admin')
+                                        <form action="{{ route('services.destroy', $s) }}" method="POST" class="inline svc-delete-form">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="tw-pressable inline-flex items-center border rounded-md px-2 py-1 text-red-700 hover:bg-red-50" title="Delete" aria-label="Delete">
+                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                    <path d="M5.5 5.5a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5zm5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5z"/>
+                                                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4H2.5a1 1 0 110-2H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1zM4 4v9a1 1 0 001 1h6a1 1 0 001-1V4H4z"/>
+                                                </svg>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </td>
                             </tr>
                             <tr class="details-row hidden">
@@ -329,7 +341,7 @@
                     </div>
                 </div>
             </div>
-            <div class="md:hidden space-y-2">
+            <div id="services_mobile_container" class="md:hidden space-y-2">
                 @forelse($services as $s)
                     @php
                         $rowStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
@@ -375,13 +387,15 @@
                                 <a class="inline-flex items-center border rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100" href="{{ route('services.edit', $s) }}" title="Edit" aria-label="Edit">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M12.146 0.646a.5.5 0 01.708 0l2.5 2.5a.5.5 0 010 .708l-8.5 8.5-3 1a.5.5 0 01-.638-.638l1-3 8.5-8.5zM11.5 1.5l-8.5 8.5-.5 1.5 1.5-.5 8.5-8.5-1-1z"/></svg>
                                 </a>
-                                <form action="{{ route('services.destroy', $s) }}" method="POST" class="inline svc-delete-form" onsubmit="return confirm('Delete this service entry?');" aria-label="Delete entry">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="inline-flex items-center border rounded-md px-2 py-1 text-red-700 hover:bg-red-50" title="Delete" aria-label="Delete">
-                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 5.5a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5zm5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4H2.5a1 1 0 110-2H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1zM4 4v9a1 1 0 001 1h6a1 1 0 001-1V4H4z"/></svg>
-                                    </button>
-                                </form>
+                                @if((Auth::user()->role ?? 'user') === 'admin')
+                                    <form action="{{ route('services.destroy', $s) }}" method="POST" class="inline svc-delete-form" onsubmit="return confirm('Delete this service entry?');" aria-label="Delete entry">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="inline-flex items-center border rounded-md px-2 py-1 text-red-700 hover:bg-red-50" title="Delete" aria-label="Delete">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 5.5a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5zm5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0v-6a.5.5 0 01.5-.5z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4H2.5a1 1 0 110-2H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1zM4 4v9a1 1 0 001 1h6a1 1 0 001-1V4H4z"/></svg>
+                                        </button>
+                                    </form>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -773,9 +787,16 @@
                         var doc = new DOMParser().parseFromString(html, 'text/html');
                         var newContainer = doc.getElementById('services_table_container');
                         var oldContainer = document.getElementById('services_table_container');
+                        var newMobile = doc.getElementById('services_mobile_container');
+                        var oldMobile = document.getElementById('services_mobile_container');
                         if (newContainer && oldContainer) {
                             oldContainer.innerHTML = newContainer.innerHTML;
                             rebindRowClicks();
+                            if (typeof window.rebindStatusAjax === 'function') window.rebindStatusAjax();
+                        }
+                        if (newMobile && oldMobile) {
+                            oldMobile.innerHTML = newMobile.innerHTML;
+                            if (typeof window.rebindStatusAjax === 'function') window.rebindStatusAjax();
                         }
                     });
             }
@@ -812,6 +833,30 @@
     </script>
     <script>
         (function(){
+            window.rebindStatusAjax = function(){
+                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                var forms = document.querySelectorAll('form');
+                forms.forEach(function(f){
+                    var sel = f.querySelector('select[name="status"]');
+                    if (!sel) return;
+                    f.addEventListener('submit', function(e){
+                        e.preventDefault();
+                        if (!csrf) { location.reload(); return; }
+                        var fd = new FormData(f);
+                        fetch(f.action, {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'text/html' },
+                            body: fd
+                        }).then(function(res){
+                            if (res.status === 419) { location.reload(); return; }
+                            if (window.twShowToast) window.twShowToast('Status updated');
+                            if (window.updateServicesTable) window.updateServicesTable();
+                        }).catch(function(){
+                            if (window.twShowToast) window.twShowToast('Update failed');
+                        });
+                    });
+                });
+            }
             var detailsPanel = document.getElementById('rowDetailsPanel');
             function updateDetailsPanel(){
                 var selected = Array.prototype.slice.call(document.querySelectorAll('.row-select:checked'));
@@ -839,6 +884,27 @@
             rowCheckboxes.forEach(function(cb){
                 cb.addEventListener('change', updateDetailsPanel);
             });
+            window.rebindStatusAjax();
+            var tableContainer = document.getElementById('services_table_container');
+            var mobileContainer = document.getElementById('services_mobile_container');
+            var interacting = false;
+            function markInteract(){ interacting = true; setTimeout(function(){ interacting = false; }, 2000); }
+            if (tableContainer) {
+                tableContainer.addEventListener('mousedown', markInteract, true);
+                tableContainer.addEventListener('keydown', markInteract, true);
+            }
+            if (mobileContainer) {
+                mobileContainer.addEventListener('mousedown', markInteract, true);
+                mobileContainer.addEventListener('keydown', markInteract, true);
+            }
+            function autoRefresh(){
+                if (interacting) return;
+                if (typeof window.updateServicesTable === 'function') window.updateServicesTable();
+            }
+            document.addEventListener('visibilitychange', function(){
+                if (!document.hidden) autoRefresh();
+            });
+            setInterval(autoRefresh, 20000);
         })();
     </script>
 </x-app-layout>

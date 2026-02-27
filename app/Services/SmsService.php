@@ -65,10 +65,10 @@ class SmsService
                 'body' => $body,
                 'provider' => (string)config('sms.provider', 'log'),
                 'event_key' => $event_key,
-                'status' => 'sent',
+                'status' => 'queued',
                 'error' => null,
             ]);
-            Log::info('SMS sent', [
+            Log::info('SMS queued', [
                 'to' => $to,
                 'service_id' => $service->id,
                 'event_key' => $event_key,

@@ -16,7 +16,7 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
                     <x-nav-link :href="route('services.index')" :active="request()->routeIs('services.*')">
-                        {{ __('FrontlineServices') }}
+                        {{ __('Frontline Services') }}
                     </x-nav-link>
                     <x-nav-link :href="route('sms-templates.index')" :active="request()->routeIs('sms-templates.*')">
                         {{ __('SMS Settings') }}

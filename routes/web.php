@@ -20,6 +20,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard', [ServiceController::class, 'dashboard'])->name('dashboard');
     Route::post('/dashboard/clear-sms', [ServiceController::class, 'clearSmsHistory'])->middleware('admin')->name('dashboard.clear-sms');
+    
 
     Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
     Route::get('/services/create', [ServiceController::class, 'create'])->name('services.create');
@@ -33,9 +34,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/services/{service}', [ServiceController::class, 'update'])->name('services.update');
     Route::put('/services/{service}/status', [ServiceController::class, 'updateStatus'])->name('services.update-status');
     Route::post('/services/bulk-status', [ServiceController::class, 'bulkStatus'])->name('services.bulk-status');
-    Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->name('services.destroy');
-    Route::post('/services/{id}/restore', [ServiceController::class, 'restore'])->name('services.restore');
-    Route::post('/services/{id}/force-delete', [ServiceController::class, 'forceDelete'])->name('services.force-delete');
+    Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->middleware('admin')->name('services.destroy');
+    Route::post('/services/{id}/restore', [ServiceController::class, 'restore'])->middleware('admin')->name('services.restore');
+    Route::post('/services/{id}/force-delete', [ServiceController::class, 'forceDelete'])->middleware('admin')->name('services.force-delete');
     Route::get('/sms-templates', [SmsTemplateController::class, 'index'])->name('sms-templates.index');
     Route::put('/sms-templates/{template}', [SmsTemplateController::class, 'update'])->middleware('admin')->name('sms-templates.update');
 

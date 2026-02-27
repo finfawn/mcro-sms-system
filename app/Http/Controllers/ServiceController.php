@@ -50,6 +50,20 @@ class ServiceController extends Controller
         }
         return $default;
     }
+    protected function allowsBackwards(string $type): bool
+    {
+        $backtrackTypes = [
+            'Delayed Registration',
+            'Frontline Service',
+            'Request for PSA documents through BREQS',
+            'Endorsement for Negative PSA - Positive LCRO',
+            'Endorsement for Blurred PSA - Clear LCRO File',
+            'Endorsement of Legal Instrument & MC 2010-04 & Court Order',
+            'Petitions filed under RA 9048 - Clerical Error',
+            'Petitions filed under RA 9048 & RA 10172',
+        ];
+        return in_array($type, $backtrackTypes, true);
+    }
 
     public function __construct(AutomationEngine $automation, SmsService $sms)
     {
@@ -185,12 +199,13 @@ class ServiceController extends Controller
         ]);
 
         $previousStatus = $service->status;
+        $isAdmin = (optional(auth()->user())->role ?? 'user') === 'admin';
         $service->update([
             'citizen_name' => $validated['citizen_name'],
             'mobile_number' => $validated['mobile_number'],
             'service_type' => $validated['service_type'],
             'status' => $validated['status'],
-            'notes' => $validated['notes'] ?? null,
+            'notes' => $isAdmin ? ($validated['notes'] ?? null) : $service->notes,
         ]);
 
         if ($previousStatus !== $validated['status']) {
@@ -833,7 +848,7 @@ class ServiceController extends Controller
             return redirect()->route('services.index')->with('status', 'Status not allowed for '.$service->service_type);
         }
         $prev = $service->status;
-        if (!in_array($service->service_type, ['Endorsement for Negative PSA - Positive LCRO','Endorsement for Blurred PSA - Clear LCRO File','Endorsement of Legal Instrument & MC 2010-04 & Court Order','Petitions filed under RA 9048 - Clerical Error','Petitions filed under RA 9048 & RA 10172'], true)) {
+        if (!$this->allowsBackwards($service->service_type)) {
             $idxPrev = array_search($prev, $allowed);
             $idxNew = array_search($validated['status'], $allowed);
             if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {
@@ -999,7 +1014,7 @@ class ServiceController extends Controller
                 continue;
             }
             $prevStatus = $svc->status;
-            if (!in_array($svc->service_type, ['Endorsement for Negative PSA - Positive LCRO','Endorsement for Blurred PSA - Clear LCRO File','Endorsement of Legal Instrument & MC 2010-04 & Court Order','Petitions filed under RA 9048 - Clerical Error','Petitions filed under RA 9048 & RA 10172'], true)) {
+            if (!$this->allowsBackwards($svc->service_type)) {
                 $idxPrev = array_search($prevStatus, $allowed);
                 $idxNew = array_search($validated['status'], $allowed);
                 if ($idxPrev !== false && $idxNew !== false && $idxNew < $idxPrev) {

@@ -18,13 +18,14 @@
     <body class="font-sans antialiased">
         <div class="fixed inset-0 -z-10">
             <div class="absolute inset-0" style="background:
-                radial-gradient(1000px 500px at 100% 0%, rgba(14,165,233,0.10), transparent 70%),
-                radial-gradient(800px 400px at 0% 100%, rgba(34,197,94,0.08), transparent 70%),
-                linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%)"></div>
+                radial-gradient(1000px 500px at 100% 0%, rgba(14,165,233,0.12), transparent 70%),
+                radial-gradient(800px 400px at 0% 100%, rgba(34,197,94,0.10), transparent 70%),
+                linear-gradient(180deg, #eef2ff 0%, #e9efff 100%)"></div>
+            <div class="absolute inset-0" style="background: linear-gradient(180deg, rgba(2,6,23,0.06) 0%, rgba(2,6,23,0.10) 100%);"></div>
             <div class="absolute inset-0 opacity-5" style="background: repeating-conic-gradient(from 45deg, rgba(30,58,138,0.06) 0deg 10deg, transparent 10deg 20deg)"></div>
             <div class="absolute top-[-10%] left-[-8%] w-[420px] h-[420px] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 60%); filter: blur(18px);"></div>
             <div class="absolute bottom-[-8%] right-[-6%] w-[480px] h-[480px] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(34,197,94,0.18) 0%, transparent 62%); filter: blur(18px);"></div>
-            <div class="absolute bottom-10 right-10 pointer-events-none" style="opacity:.12">
+            <div class="absolute bottom-10 right-10 pointer-events-none" style="opacity:.10">
                 <img src="{{ asset('logo/LOGO1.png') }}" alt="Watermark" class="w-[420px] md:w-[560px] h-auto select-none">
             </div>
         </div>
@@ -33,6 +34,24 @@
 
             <!-- Page Content -->
             <main>
+                @php
+                    $provider = config('sms.provider', 'log');
+                    $tb = config('sms.textbee', []);
+                    $tbReady = ($tb['device_id'] ?? '') !== '' && ($tb['api_key'] ?? '') !== '';
+                @endphp
+                @if($provider === 'log')
+                    <div class="px-4 py-2 bg-gray-900 text-white text-xs">
+                        <div class="max-w-7xl mx-auto flex items-center justify-between">
+                            <div>SMS Simulation Mode is active. Messages are not sent to recipients.</div>
+                        </div>
+                    </div>
+                @elseif($provider === 'textbee' && !$tbReady)
+                    <div class="px-4 py-2 bg-amber-600 text-white text-xs">
+                        <div class="max-w-7xl mx-auto flex items-center justify-between">
+                            <div>SMS Gateway not configured. Set TEXTBEE_DEVICE_ID and TEXTBEE_API_KEY.</div>
+                        </div>
+                    </div>
+                @endif
                 @isset($header)
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
                         {{ $header }}

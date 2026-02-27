@@ -18,13 +18,14 @@
     <body class="font-sans text-gray-900 antialiased">
         <div class="fixed inset-0 -z-10">
             <div class="absolute inset-0" style="background:
-                radial-gradient(1000px 500px at 100% 0%, rgba(14,165,233,0.10), transparent 70%),
-                radial-gradient(800px 400px at 0% 100%, rgba(34,197,94,0.08), transparent 70%),
-                linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%)"></div>
+                radial-gradient(1000px 500px at 100% 0%, rgba(14,165,233,0.12), transparent 70%),
+                radial-gradient(800px 400px at 0% 100%, rgba(34,197,94,0.10), transparent 70%),
+                linear-gradient(180deg, #eef2ff 0%, #e9efff 100%)"></div>
+            <div class="absolute inset-0" style="background: linear-gradient(180deg, rgba(2,6,23,0.06) 0%, rgba(2,6,23,0.10) 100%);"></div>
             <div class="absolute inset-0 opacity-5" style="background: repeating-conic-gradient(from 45deg, rgba(30,58,138,0.06) 0deg 10deg, transparent 10deg 20deg)"></div>
             <div class="absolute top-[-8%] left-[-6%] w-[360px] h-[360px] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 60%); filter: blur(16px);"></div>
             <div class="absolute bottom-[-6%] right-[-4%] w-[400px] h-[400px] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(34,197,94,0.18) 0%, transparent 62%); filter: blur(16px);"></div>
-            <div class="absolute bottom-8 right-8 pointer-events-none" style="opacity:.12">
+            <div class="absolute bottom-8 right-8 pointer-events-none" style="opacity:.10">
                 <img src="{{ asset('logo/LOGO1.png') }}" alt="Watermark" class="w-[360px] md:w-[500px] h-auto select-none">
             </div>
         </div>

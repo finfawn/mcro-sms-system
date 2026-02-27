@@ -50,7 +50,11 @@
                             </div>
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                                <textarea name="notes" class="border-gray-300 rounded-md w-full" rows="3">{{ old('notes', $service->notes) }}</textarea>
+                                @if((Auth::user()->role ?? 'user') === 'admin')
+                                    <textarea name="notes" class="border-gray-300 rounded-md w-full" rows="3">{{ old('notes', $service->notes) }}</textarea>
+                                @else
+                                    <div class="border-gray-300 rounded-md w-full p-2 bg-gray-50">{{ $service->notes ?? '—' }}</div>
+                                @endif
                             </div>
                             <div>
                                 <button type="submit" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Submit</button>

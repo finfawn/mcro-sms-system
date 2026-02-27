@@ -51,6 +51,27 @@ class SmsTemplateController extends Controller
                 'verification_consistent' => 4,
                 'ready_for_release' => 5,
             ],
+            'Delayed Registration of Birth' => [
+                'requirements_incomplete' => 1,
+                'verification_started' => 2,
+                'verification_inconsistent' => 3,
+                'verification_consistent' => 4,
+                'ready_for_release' => 5,
+            ],
+            'Delayed Registration of Death' => [
+                'requirements_incomplete' => 1,
+                'verification_started' => 2,
+                'verification_inconsistent' => 3,
+                'verification_consistent' => 4,
+                'ready_for_release' => 5,
+            ],
+            'Delayed Registration of Marriage' => [
+                'requirements_incomplete' => 1,
+                'verification_started' => 2,
+                'verification_inconsistent' => 3,
+                'verification_consistent' => 4,
+                'ready_for_release' => 5,
+            ],
             'Petitions filed under RA 9048 - Clerical Error' => [
                 'petition_ready_for_filing' => 1,
                 'petition_ready_for_posting' => 2,

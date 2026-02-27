@@ -27,6 +27,9 @@
                                     <option value="">Select type</option>
                                     @php($types = [
                                         'Application for Marriage License',
+                                        'Delayed Registration of Birth',
+                                        'Delayed Registration of Death',
+                                        'Delayed Registration of Marriage',
                                         'Delayed Registration',
                                         'Petition',
                                         'Legal Instrument - Legitimation',

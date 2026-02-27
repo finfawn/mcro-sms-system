@@ -24,7 +24,12 @@ class ServiceController extends Controller
         if ($type === 'Application for Marriage License') {
             return ['Filed','Paid','Posted','Released'];
         }
-        if ($type === 'Delayed Registration') {
+        if (
+            $type === 'Delayed Registration' ||
+            $type === 'Delayed Registration of Birth' ||
+            $type === 'Delayed Registration of Death' ||
+            $type === 'Delayed Registration of Marriage'
+        ) {
             return ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'];
         }
         if ($type === 'Frontline Service') {
@@ -54,6 +59,9 @@ class ServiceController extends Controller
     {
         $backtrackTypes = [
             'Delayed Registration',
+            'Delayed Registration of Birth',
+            'Delayed Registration of Death',
+            'Delayed Registration of Marriage',
             'Frontline Service',
             'Request for PSA documents through BREQS',
             'Endorsement for Negative PSA - Positive LCRO',
@@ -125,8 +133,14 @@ class ServiceController extends Controller
 
     public function create(): View
     {
-        $types = SmsTemplate::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
-        return view('services.create', ['types' => $types]);
+        $typesCol = SmsTemplate::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
+        $extra = [
+            'Delayed Registration of Birth',
+            'Delayed Registration of Death',
+            'Delayed Registration of Marriage',
+        ];
+        $merged = collect(array_values(array_unique(array_merge($typesCol->toArray(), $extra))));
+        return view('services.create', ['types' => $merged]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -224,7 +238,12 @@ class ServiceController extends Controller
             $service->release_date = now();
             $service->save();
         }
-        if ($validated['service_type'] === 'Delayed Registration') {
+        if (in_array($validated['service_type'], [
+            'Delayed Registration',
+            'Delayed Registration of Birth',
+            'Delayed Registration of Death',
+            'Delayed Registration of Marriage',
+        ], true)) {
             if ($previousStatus !== 'Under Verification' && $validated['status'] === 'Under Verification') {
                 $this->sms->send($service, 'verification_started');
             }
@@ -426,6 +445,35 @@ class ServiceController extends Controller
             'Content-Type' => 'application/vnd.ms-excel',
             'Content-Disposition' => 'attachment; filename=services_export_'.$date.'.xls',
         ]);
+    }
+    public function mapDelayedTypes(): RedirectResponse
+    {
+        $services = Service::where('service_type', 'Delayed Registration')->get();
+        $birth = 0; $death = 0; $marriage = 0; $unchanged = 0;
+        foreach ($services as $s) {
+            $txt = strtolower((string)($s->notes ?? ''));
+            $target = null;
+            if ($txt !== '') {
+                if (str_contains($txt, 'birth') || str_contains($txt, 'live birth')) {
+                    $target = 'Delayed Registration of Birth';
+                } elseif (str_contains($txt, 'death') || str_contains($txt, 'deceased')) {
+                    $target = 'Delayed Registration of Death';
+                } elseif (str_contains($txt, 'marriage') || str_contains($txt, 'wedding')) {
+                    $target = 'Delayed Registration of Marriage';
+                }
+            }
+            if ($target) {
+                $s->service_type = $target;
+                $s->save();
+                if ($target === 'Delayed Registration of Birth') $birth++;
+                elseif ($target === 'Delayed Registration of Death') $death++;
+                elseif ($target === 'Delayed Registration of Marriage') $marriage++;
+            } else {
+                $unchanged++;
+            }
+        }
+        $msg = 'Split completed: Birth '.$birth.', Death '.$death.', Marriage '.$marriage.', Unchanged '.$unchanged;
+        return redirect()->route('services.index')->with('status', $msg);
     }
 
     private function parseXlsx(string $path): array

@@ -24,6 +24,15 @@
                 </svg>
                 <span>Export</span>
             </a>
+            @if((Auth::user()->role ?? 'user') === 'admin')
+                <form method="POST" action="{{ route('admin.services.map-delayed') }}" class="inline" onsubmit="return confirm('Split Delayed Registration records into Birth/Death/Marriage based on notes?');">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7 1a1 1 0 011 1v5.586l2.146-2.147a1 1 0 111.415 1.415l-3.853 3.853a1 1 0 01-1.415 0L1.44 7.854a1 1 0 111.415-1.415L6 8.586V2a1 1 0 011-1z"/></svg>
+                        <span>Split Delayed Types</span>
+                    </button>
+                </form>
+            @endif
             <a href="{{ route('services.create') }}" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M8 1a1 1 0 011 1v5h5a1 1 0 110 2H9v5a1 1 0 11-2 0V9H2a1 1 0 110-2h5V2a1 1 0 011-1z"/>
@@ -157,7 +166,7 @@
                                 $rowStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
                                 if ($s->service_type === 'Application for Marriage License') {
                                     $rowStatuses = ['Filed','Paid','Posted','Released'];
-                                } elseif ($s->service_type === 'Delayed Registration') {
+                                } elseif (in_array($s->service_type, ['Delayed Registration','Delayed Registration of Birth','Delayed Registration of Death','Delayed Registration of Marriage'])) {
                                     $rowStatuses = $delayedStatuses;
                                 } elseif ($s->service_type === 'Frontline Service') {
                                     $rowStatuses = $frontlineStatuses;
@@ -218,7 +227,7 @@
                                             $rowStatuses = $defaultStatuses;
                                             if ($s->service_type === 'Application for Marriage License') {
                                                 $rowStatuses = $mlStatuses;
-                                            } elseif ($s->service_type === 'Delayed Registration') {
+                                            } elseif (in_array($s->service_type, ['Delayed Registration','Delayed Registration of Birth','Delayed Registration of Death','Delayed Registration of Marriage'])) {
                                                 $rowStatuses = $delayedStatuses;
                                             } elseif ($s->service_type === 'Frontline Service') {
                                                 $rowStatuses = $frontlineStatuses;
@@ -238,6 +247,9 @@
                                                     $idx = array_search($st, $rowStatuses);
                                                     $allowBackTypes = [
                                                         'Delayed Registration',
+                                                        'Delayed Registration of Birth',
+                                                        'Delayed Registration of Death',
+                                                        'Delayed Registration of Marriage',
                                                         'Frontline Service',
                                                         'Request for PSA documents through BREQS',
                                                         'Endorsement for Negative PSA - Positive LCRO',
@@ -567,6 +579,9 @@
             var STATUS_MAP = {
                 'Application for Marriage License': ['Filed','Paid','Posted','Released'],
                 'Delayed Registration': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
+                'Delayed Registration of Birth': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
+                'Delayed Registration of Death': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
+                'Delayed Registration of Marriage': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
                 'Frontline Service': ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'],
                 'Request for PSA documents through BREQS': ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'],
                 'Endorsement for Negative PSA - Positive LCRO': ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'],

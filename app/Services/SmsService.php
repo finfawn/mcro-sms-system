@@ -208,6 +208,22 @@ class SmsService
                 return 'Good day {{citizen_name}} (Ref: {{reference_no}}). Your petition has been reworked and resent to PSA Legal Services for review.';
             }
         }
+        if (in_array($service->service_type, [
+            'Delayed Registration',
+            'Delayed Registration of Birth',
+            'Delayed Registration of Death',
+            'Delayed Registration of Marriage',
+        ], true)) {
+            if ($event_key === 'verification_started') {
+                return 'We received your Delayed Registration requirements for {{citizen_name}} (Ref: {{reference_no}}). Your application is now subject to verification.';
+            }
+            if ($event_key === 'requirements_incomplete') {
+                return 'Your Delayed Registration requirements for {{citizen_name}} (Ref: {{reference_no}}) are incomplete. Please complete the required documents at the MCRO to proceed.';
+            }
+            if ($event_key === 'verification_consistent') {
+                return 'Verification complete for {{citizen_name}} (Ref: {{reference_no}}). Your application is consistent. We will proceed to posting notice, which undergoes a 10-day posting period.';
+            }
+        }
         return null;
     }
 }

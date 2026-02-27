@@ -49,6 +49,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/{id}/restore', [AdminUserController::class, 'restore'])->name('users.restore');
         Route::post('/users/{id}/force-delete', [AdminUserController::class, 'forceDelete'])->name('users.force-delete');
+            Route::post('/services/map-delayed', [ServiceController::class, 'mapDelayedTypes'])->name('services.map-delayed');
     });
 });
 

@@ -47,8 +47,13 @@ class AutomationEngine
     {
         $rules = [];
 
-        // Apply TenDayPostingRule to "Delayed Registration"
-        if ($service->service_type === 'Delayed Registration') {
+        // Apply TenDayPostingRule to Delayed Registration types
+        if (in_array($service->service_type, [
+            'Delayed Registration',
+            'Delayed Registration of Birth',
+            'Delayed Registration of Death',
+            'Delayed Registration of Marriage',
+        ], true)) {
             $rules[] = new TenDayPostingRule($this->smsService);
         }
 

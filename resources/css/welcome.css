@@ -94,14 +94,14 @@ body {
 }
 
 .logo-row .logo {
-    height: clamp(90px, 12vh, 110px);
+    height: clamp(80px, 11vh, 100px);
     width: auto;
     object-fit: contain;
     filter: brightness(1.02) contrast(1.02);
     transition: all 0.2s ease;
     opacity: 0.98;
     border-bottom: 3px solid transparent;
-    margin-top: 30px;
+    margin-top: 12px;
 }
 
 .logo:hover {
@@ -323,14 +323,16 @@ body {
 /* tablet & mobile */
 @media (max-width: 900px) {
     body, .page {
-        overflow: hidden;
+        overflow-y: auto;
+        min-height: 100vh;
     }
     
     .welcome-card {
         flex-direction: column;
-        width: 88vw;
-        height: 66vh;
+        width: 92vw;
+        height: auto;
         min-height: 0;
+        border-radius: 8px;
     }
     
     .welcome-left, .welcome-right {
@@ -338,12 +340,12 @@ body {
     }
     
     .welcome-right {
-        height: 38%;
+        height: 30%;
     }
     
     .welcome-left {
-        height: 62%;
-        padding: 2.5vh 5vw;
+        height: auto;
+        padding: 2vh 5vw;
     }
     
     .welcome-left::after {
@@ -351,7 +353,7 @@ body {
     }
     
     .logo-row .logo {
-        height: clamp(55px, 10vh, 85px);
+        height: clamp(44px, 8vh, 64px);
     }
     
     .welcome-title {
@@ -361,16 +363,17 @@ body {
     }
     
     .btn {
-        white-space: nowrap;
-        padding: 0.7rem 2rem;
+        white-space: normal;
+        padding: 0.9rem 1rem;
         font-size: 1rem;
         margin-left: 0;
+        width: 100%;
     }
     
     .footer-note {
         white-space: normal;
         padding: 0.4vh 2vw;
-        width: 88vw;
+        width: 92vw;
     }
 }
 
@@ -396,9 +399,9 @@ body {
     }
     
     .btn {
-        padding: 0.4rem 1.8rem;
-        font-size: 0.9rem;
-        margin-left: 1.2rem;
+        padding: 0.6rem 1rem;
+        font-size: 0.95rem;
+        margin-left: 0;
     }
     
     .welcome-subtitle {

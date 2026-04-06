@@ -17,21 +17,21 @@
                         <div class="text-center bg-blue-600 text-white rounded-md px-4 py-2">
                             <div class="flex items-center justify-center gap-2 text-xs">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a1 1 0 011 1v2h2a1 1 0 110 2H9v2a1 1 0 11-2 0V6H5a1 1 0 110-2h2V2a1 1 0 011-1z"/></svg>
-                                <span>Today</span>
+                                <span>Messages sent today</span>
                             </div>
                             <div class="text-2xl font-bold">{{ $messagesToday ?? 0 }}</div>
                         </div>
                         <div class="text-center bg-blue-600 text-white rounded-md px-4 py-2">
                             <div class="flex items-center justify-center gap-2 text-xs">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3zm3 2a1 1 0 000 2h6a1 1 0 100-2H5z"/></svg>
-                                <span>Last 30 Days</span>
+                                <span>Messages sent (last 30 days)</span>
                             </div>
                             <div class="text-2xl font-bold">{{ $messages30Days ?? 0 }}</div>
                         </div>
                         <div class="text-center bg-blue-600 text-white rounded-md px-4 py-2">
                             <div class="flex items-center justify-center gap-2 text-xs">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 2h12v3H2V2zm0 5h12v3H2V7zm0 5h12v2H2v-2z"/></svg>
-                                <span>Total Sent</span>
+                                <span>Total messages sent</span>
                             </div>
                             <div class="text-2xl font-bold">{{ $messagesTotal ?? 0 }}</div>
                         </div>
@@ -178,7 +178,13 @@
                     <div class="px-4 py-3 border-b flex items-center justify-between">
                         <div class="text-sm font-medium text-gray-900">Recent SMS</div>
                         <div class="flex items-center gap-3">
-                            <div class="text-xs text-gray-500">Last {{ ($recentSms ?? collect())->count() }} messages</div>
+                            <div class="text-xs text-gray-500">
+                                @if(isset($recentSms) && method_exists($recentSms, 'total') && $recentSms->total() > 0)
+                                    Showing {{ $recentSms->firstItem() }}–{{ $recentSms->lastItem() }} of {{ $recentSms->total() }}
+                                @else
+                                    {{ ($recentSms ?? collect())->count() }} messages
+                                @endif
+                            </div>
                             @if((Auth::user()->role ?? 'user') === 'admin')
                                 <form id="dashClearSmsForm" method="POST" action="{{ route('dashboard.clear-sms') }}">
                                     @csrf
@@ -234,7 +240,7 @@
                                                 $label = 'Failed';
                                                 $cls = 'bg-red-100 text-red-700';
                                                 if ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
-                                                elseif ($st === 'queued') { $label = 'Queued'; $cls = 'bg-yellow-100 text-yellow-700'; }
+                                                elseif ($st === 'dispatched' || $st === 'queued') { $label = 'Dispatched'; $cls = 'bg-yellow-100 text-yellow-700'; }
                                                 elseif ($st === 'sent') { $label = 'Sent'; $cls = 'bg-green-100 text-green-700'; }
                                             @endphp
                                             <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs {{ $cls }}">{{ $label }}</span>
@@ -264,7 +270,7 @@
                                     $label = 'Failed';
                                     $cls = 'bg-red-100 text-red-700';
                                     if ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
-                                    elseif ($st === 'queued') { $label = 'Queued'; $cls = 'bg-yellow-100 text-yellow-700'; }
+                                    elseif ($st === 'dispatched' || $st === 'queued') { $label = 'Dispatched'; $cls = 'bg-yellow-100 text-yellow-700'; }
                                     elseif ($st === 'sent') { $label = 'Sent'; $cls = 'bg-green-100 text-green-700'; }
                                 @endphp
                             <div class="bg-white border rounded-md p-3">
@@ -285,6 +291,25 @@
                             <div class="bg-white border rounded-md p-3 text-sm text-gray-500">No SMS activity yet</div>
                         @endforelse
                     </div>
+                    @if(isset($recentSms) && method_exists($recentSms, 'hasPages') && $recentSms->hasPages())
+                    <div class="mt-3 px-4 pb-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+                        <div class="text-sm text-gray-600">
+                            Page {{ $recentSms->currentPage() }} of {{ $recentSms->lastPage() }}
+                        </div>
+                        <nav class="flex items-center gap-1" aria-label="SMS history pagination">
+                            @if ($recentSms->onFirstPage())
+                                <span class="inline-flex items-center px-3 py-1.5 border border-gray-200 rounded-md text-gray-400 cursor-not-allowed text-sm">Previous</span>
+                            @else
+                                <a href="{{ $recentSms->withQueryString()->previousPageUrl() }}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">Previous</a>
+                            @endif
+                            @if ($recentSms->hasMorePages())
+                                <a href="{{ $recentSms->withQueryString()->nextPageUrl() }}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">Next</a>
+                            @else
+                                <span class="inline-flex items-center px-3 py-1.5 border border-gray-200 rounded-md text-gray-400 cursor-not-allowed text-sm">Next</span>
+                            @endif
+                        </nav>
+                    </div>
+                    @endif
                 </div>
             </div>
             <div id="twClearSmsModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="twClearSmsTitle">

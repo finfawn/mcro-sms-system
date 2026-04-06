@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="flex justify-between items-center px-4 sm:px-6 lg:px-8 pt-3">
         <h2 class="text-base font-semibold text-gray-900 whitespace-nowrap flex-shrink-0">Service List</h2>
-        <div class="flex items-center gap-2 flex-1">
+        <div id="action_bar" class="flex items-center gap-2 flex-1">
             <div class="flex-1 hidden sm:flex justify-center">
                 <form method="GET" action="{{ route('services.index') }}" class="flex items-center w-full justify-center">
                     <input type="hidden" name="service_type" value="{{ $serviceType ?? '' }}">
@@ -11,33 +11,25 @@
                     <input type="text" name="name" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full max-w-md text-center" placeholder="Search name or reference" id="header_search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
                 </form>
             </div>
-            <a href="{{ route('services.bulk-upload.form') }}" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
+            <a href="{{ route('services.bulk-upload.form') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100" aria-label="Bulk Upload" title="Bulk Upload">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M2 2h12v3H2V2zm0 4h12v3H2V6zm0 4h12v2H2v-2z"/>
+                    <path d="M8 2l3 3H9v4H7V5H5l3-3z"/>
+                    <path d="M2 9h12v3a2 2 0 01-2 2H4a2 2 0 01-2-2V9z"/>
                 </svg>
-                <span>Bulk Upload</span>
+                <span class="action-label">Bulk Upload</span>
             </a>
-            <a href="{{ route('services.export') }}" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
+            <a href="{{ route('services.export') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100" aria-label="Export" title="Export">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M8 1a1 1 0 011 1v6.586l2.146-2.147a1 1 0 111.415 1.415l-3.853 3.853a1 1 0 01-1.415 0L2.44 8.854a1 1 0 111.415-1.415L6 9.586V2a1 1 0 112 0z"/>
                     <path d="M2 13a1 1 0 011-1h10a1 1 0 110 2H3a1 1 0 01-1-1z"/>
                 </svg>
-                <span>Export</span>
+                <span class="action-label">Export</span>
             </a>
-            @if((Auth::user()->role ?? 'user') === 'admin')
-                <form method="POST" action="{{ route('admin.services.map-delayed') }}" class="inline" onsubmit="return confirm('Split Delayed Registration records into Birth/Death/Marriage based on notes?');">
-                    @csrf
-                    <button type="submit" class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7 1a1 1 0 011 1v5.586l2.146-2.147a1 1 0 111.415 1.415l-3.853 3.853a1 1 0 01-1.415 0L1.44 7.854a1 1 0 111.415-1.415L6 8.586V2a1 1 0 011-1z"/></svg>
-                        <span>Split Delayed Types</span>
-                    </button>
-                </form>
-            @endif
-            <a href="{{ route('services.create') }}" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            <a href="{{ route('services.create') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" aria-label="New Entry" title="New Entry">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M8 1a1 1 0 011 1v5h5a1 1 0 110 2H9v5a1 1 0 11-2 0V9H2a1 1 0 110-2h5V2a1 1 0 011-1z"/>
                 </svg>
-                <span>New Entry</span>
+                <span class="action-label">New Entry</span>
             </a>
         </div>
     </div>
@@ -46,14 +38,65 @@
         <div class="max-w-7xl mx-auto px-4">
             @php
                 $defaultStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
-                $mlStatuses = ['Filed','Paid','Posted','Released'];
-                $delayedStatuses = ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'];
-                $frontlineStatuses = ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
-                $endorsementStatuses = ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
-                $endorsementBlurredStatuses = ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
-                $endorsementLegalStatuses = ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
-                $ra9048Statuses = ['Drafted','For Filing','Posted','Sent to PSA','Affirmed','Impugned'];
-                $ra9048_10172Statuses = ['Drafted','For Filing','Posted','Sent to PSA','Affirmed','Impugned'];
+                $statusesByType = $statusesByType ?? [];
+                $statusBorderColor = [
+                    'Filed' => '#6b7280',
+                    'Processing' => '#3b82f6',
+                    'Endorsed' => '#0ea5e9',
+                    'Released' => '#22c55e',
+                    'Rejected' => '#ef4444',
+                    'Paid' => '#6366f1',
+                    'Posted' => '#f59e0b',
+                    'Under Verification' => '#eab308',
+                    'Consistent' => '#10b981',
+                    'Inconsistent' => '#f97316',
+                    'Ready for Release' => '#14b8a6',
+                    'Ready for Pickup' => '#14b8a6',
+                    'Authenticated' => '#64748b',
+                    'Form Filled' => '#64748b',
+                    'Submitted' => '#8b5cf6',
+                    'Claim Stub Issued' => '#06b6d4',
+                    'Sent to PSA' => '#a855f7',
+                    'PSA Has Feedback' => '#f59e0b',
+                    'Reworked and Resent' => '#3b82f6',
+                    'PSA Successfully Uploaded' => '#22c55e',
+                    'PSA No Feedback' => '#22c55e',
+                    'Drafted' => '#6b7280',
+                    'For Filing' => '#3b82f6',
+                    'Affirmed' => '#22c55e',
+                    'Impugned' => '#ef4444',
+                    'Published' => '#f59e0b',
+                    'Decision Rendered' => '#6366f1',
+                ];
+                $statusDropdownBg = [
+                    'Filed' => '#e5e7eb',
+                    'Processing' => '#bfdbfe',
+                    'Endorsed' => '#bae6fd',
+                    'Released' => '#bbf7d0',
+                    'Rejected' => '#fecaca',
+                    'Paid' => '#c7d2fe',
+                    'Posted' => '#fde68a',
+                    'Under Verification' => '#fef08a',
+                    'Consistent' => '#a7f3d0',
+                    'Inconsistent' => '#fed7aa',
+                    'Ready for Release' => '#99f6e4',
+                    'Ready for Pickup' => '#99f6e4',
+                    'Authenticated' => '#e2e8f0',
+                    'Form Filled' => '#e2e8f0',
+                    'Submitted' => '#ddd6fe',
+                    'Claim Stub Issued' => '#a5f3fc',
+                    'Sent to PSA' => '#e9d5ff',
+                    'PSA Has Feedback' => '#fde68a',
+                    'Reworked and Resent' => '#bfdbfe',
+                    'PSA Successfully Uploaded' => '#bbf7d0',
+                    'PSA No Feedback' => '#bbf7d0',
+                    'Drafted' => '#e5e7eb',
+                    'For Filing' => '#bfdbfe',
+                    'Affirmed' => '#bbf7d0',
+                    'Impugned' => '#fecaca',
+                    'Published' => '#fde68a',
+                    'Decision Rendered' => '#c7d2fe',
+                ];
             @endphp
             
             <div class="bg-white border rounded-md mb-3">
@@ -123,6 +166,7 @@
                     height: 0;
                     opacity: 0;
                     transition: height 220ms ease, opacity 220ms ease;
+                }
                 .tw-timeline .item {
                     display: flex;
                     align-items: flex-start;
@@ -138,6 +182,67 @@
                     border-radius: 9999px;
                     background-color: #9CA3AF; /* gray-400 */
                     margin-top: 6px;
+                }
+                .tw-timeline.tw-timeline-wide {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 0 1.5rem;
+                }
+                .tw-timeline.tw-timeline-wide .item {
+                    margin-bottom: 6px;
+                }
+                @media (max-width: 767px) {
+                    .tw-timeline.tw-timeline-wide {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                #action_bar .action-btn {
+                    min-height: 40px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                /* Bigger screens (lg+): keep table looking same as medium desktop — only affects desktop, not phone */
+                @media (min-width: 1024px) {
+                    #services_table_container {
+                        font-size: 1rem;
+                        max-width: 72rem;
+                        margin-left: auto;
+                        margin-right: auto;
+                    }
+                    #services_table_container thead th,
+                    #services_table_container tbody td {
+                        padding: 0.75rem 1rem;
+                    }
+                    #services_table_container .details-content .tw-timeline .item {
+                        margin-bottom: 10px;
+                    }
+                    #services_table_container .details-content .text-sm {
+                        font-size: 1rem;
+                    }
+                }
+                @media (max-width: 640px) {
+                    #action_bar {
+                        display: flex;
+                        justify-content: flex-end;
+                        gap: 8px;
+                    }
+                    #action_bar .action-btn {
+                        width: 44px;
+                        height: 44px;
+                        padding: 0;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        font-size: .85rem;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
+                    #action_bar .action-btn svg { margin: 0; }
+                    #action_bar .action-btn .action-label { display: none; }
+                }
+                @media (min-width: 641px) {
+                    #action_bar .action-btn .action-label { display: inline; }
                 }
             </style>
             
@@ -163,39 +268,17 @@
                     <tbody class="divide-y divide-gray-200">
                         @forelse($services as $s)
                             @php
-                                $rowStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
-                                if ($s->service_type === 'Application for Marriage License') {
-                                    $rowStatuses = ['Filed','Paid','Posted','Released'];
-                                } elseif (in_array($s->service_type, ['Delayed Registration','Delayed Registration of Birth','Delayed Registration of Death','Delayed Registration of Marriage'])) {
-                                    $rowStatuses = $delayedStatuses;
-                                } elseif ($s->service_type === 'Frontline Service') {
-                                    $rowStatuses = $frontlineStatuses;
-                                } elseif ($s->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
-                                    $rowStatuses = $endorsementStatuses;
-                                } elseif ($s->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
-                                    $rowStatuses = $endorsementBlurredStatuses;
-                                } elseif ($s->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
-                                    $rowStatuses = $endorsementLegalStatuses;
-                                } elseif ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
-                                    $rowStatuses = $ra9048Statuses;
-                                } elseif ($s->service_type === 'Petitions filed under RA 9048 & RA 10172') {
-                                    $rowStatuses = $ra9048_10172Statuses;
+                                $rowStatuses = $statusesByType[$s->service_type] ?? $defaultStatuses;
+                                if (!in_array($s->status, $rowStatuses, true)) {
+                                    $rowStatuses = array_merge([$s->status], $rowStatuses);
                                 }
                                 $currentIndex = array_search($s->status, $rowStatuses);
                             @endphp
                             @php
-                                $accentMap = [
-                                    'Filed' => 'border-l-gray-300',
-                                    'Processing' => 'border-l-blue-400',
-                                    'Paid' => 'border-l-indigo-400',
-                                    'Posted' => 'border-l-amber-400',
-                                    'Ready for Release' => 'border-l-emerald-400',
-                                    'Released' => 'border-l-green-500',
-                                    'Rejected' => 'border-l-red-500',
-                                ];
-                                $accent = $accentMap[$s->status] ?? 'border-l-gray-200';
+                                $leftBorderColor = $statusBorderColor[$s->status] ?? '#d1d5db';
                             @endphp
-                            <tr class="hover:bg-gray-50 svc-row cursor-pointer {{ $accent }} border-l-4"
+                            <tr class="hover:bg-gray-50 svc-row cursor-pointer border-l-4"
+                                style="border-left-color: {{ $leftBorderColor }};"
                                 data-id="{{ $s->id }}"
                                 data-ref="{{ $s->reference_no }}"
                                 data-name="{{ $s->citizen_name }}"
@@ -224,24 +307,12 @@
                                         @csrf
                                         @method('PUT')
                                         @php
-                                            $rowStatuses = $defaultStatuses;
-                                            if ($s->service_type === 'Application for Marriage License') {
-                                                $rowStatuses = $mlStatuses;
-                                            } elseif (in_array($s->service_type, ['Delayed Registration','Delayed Registration of Birth','Delayed Registration of Death','Delayed Registration of Marriage'])) {
-                                                $rowStatuses = $delayedStatuses;
-                                            } elseif ($s->service_type === 'Frontline Service') {
-                                                $rowStatuses = $frontlineStatuses;
-                                            } elseif ($s->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
-                                                $rowStatuses = $endorsementStatuses;
-                                            } elseif ($s->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
-                                                $rowStatuses = $endorsementBlurredStatuses;
-                                            } elseif ($s->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
-                                                $rowStatuses = $endorsementLegalStatuses;
-                                            } elseif ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
-                                                $rowStatuses = $ra9048Statuses;
+                                            $rowStatuses = $statusesByType[$s->service_type] ?? $defaultStatuses;
+                                            if (!in_array($s->status, $rowStatuses, true)) {
+                                                $rowStatuses = array_merge([$s->status], $rowStatuses);
                                             }
                                         @endphp
-                                        <select name="status" class="border-gray-300 rounded-md text-sm px-2 py-1" onchange="this.form.submit()">
+                                        <select name="status" class="rounded-md text-sm px-2 py-1 border border-gray-300" style="background-color: {{ $statusDropdownBg[$s->status] ?? '#f9fafb' }};" onchange="this.form.submit()">
                                             @foreach($rowStatuses as $st)
                                                 @php
                                                     $idx = array_search($st, $rowStatuses);
@@ -250,8 +321,6 @@
                                                         'Delayed Registration of Birth',
                                                         'Delayed Registration of Death',
                                                         'Delayed Registration of Marriage',
-                                                        'Frontline Service',
-                                                        'Request for PSA documents through BREQS',
                                                         'Endorsement for Negative PSA - Positive LCRO',
                                                         'Endorsement for Blurred PSA - Clear LCRO File',
                                                         'Endorsement of Legal Instrument & MC 2010-04 & Court Order',
@@ -289,11 +358,18 @@
                             <tr class="details-row hidden">
                                 <td colspan="6" class="bg-gray-50">
                                     <div class="p-3 details-content">
+                                        @php
+                                            $maxTimelineItems = 6;
+                                            $logCount = $s->statusLogs->count();
+                                            $timelineTruncated = $logCount > $maxTimelineItems;
+                                            $displayLogs = $timelineTruncated ? $s->statusLogs->take($maxTimelineItems) : $s->statusLogs;
+                                            $timelineWide = $logCount > 4;
+                                        @endphp
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                             <div class="md:col-span-2">
                                                 <div class="text-sm font-medium text-gray-700 mb-2">Timeline</div>
-                                                <div class="tw-timeline">
-                                                    @forelse($s->statusLogs as $log)
+                                                <div class="tw-timeline {{ $timelineWide ? 'tw-timeline-wide' : '' }}">
+                                                    @forelse($displayLogs as $log)
                                                         <div class="item">
                                                             <span class="dot"></span>
                                                             <div>
@@ -310,12 +386,20 @@
                                                             </div>
                                                         </div>
                                                     @endforelse
-                                                    @if($s->posting_start_date)
+                                                    @if($s->posting_start_date && !$timelineTruncated)
                                                         <div class="item">
                                                             <span class="dot"></span>
                                                             <div>
                                                                 <div class="text-gray-500">Ready For Release (estimated)</div>
                                                                 <div class="text-gray-900">{{ $s->posting_start_date->copy()->addWeekdays(10)->format('Y-m-d') }}</div>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                    @if($timelineTruncated)
+                                                        <div class="item col-span-full mt-1">
+                                                            <span class="dot"></span>
+                                                            <div>
+                                                                <a href="{{ route('services.show', $s) }}" class="text-indigo-600 hover:text-indigo-700 text-sm">… View full timeline</a>
                                                             </div>
                                                         </div>
                                                     @endif
@@ -337,6 +421,28 @@
                     </tbody>
                 </table>
             </div>
+            @if($services->hasPages())
+            <div id="services_pagination" class="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
+                <div class="text-sm text-gray-600">
+                    Showing {{ $services->firstItem() ?? 0 }}–{{ $services->lastItem() ?? 0 }} of {{ $services->total() }}
+                </div>
+                <nav class="flex items-center gap-1" aria-label="Service list pagination">
+                    @if ($services->onFirstPage())
+                        <span class="inline-flex items-center px-3 py-1.5 border border-gray-200 rounded-md text-gray-400 cursor-not-allowed text-sm">Previous</span>
+                    @else
+                        <a href="{{ $services->withQueryString()->previousPageUrl() }}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">Previous</a>
+                    @endif
+                    <span class="px-2 text-sm text-gray-500">Page {{ $services->currentPage() }} of {{ $services->lastPage() }}</span>
+                    @if ($services->hasMorePages())
+                        <a href="{{ $services->withQueryString()->nextPageUrl() }}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">Next</a>
+                    @else
+                        <span class="inline-flex items-center px-3 py-1.5 border border-gray-200 rounded-md text-gray-400 cursor-not-allowed text-sm">Next</span>
+                    @endif
+                </nav>
+            </div>
+            @else
+            <div id="services_pagination" class="hidden"></div>
+            @endif
             <div id="twDeleteModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="twDeleteTitle">
                 <div class="absolute inset-0 bg-black/30"></div>
                 <div class="relative max-w-md mx-auto mt-24 bg-white rounded-lg shadow ring-1 ring-gray-200">
@@ -356,23 +462,9 @@
             <div id="services_mobile_container" class="md:hidden space-y-2">
                 @forelse($services as $s)
                     @php
-                        $rowStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
-                        if ($s->service_type === 'Application for Marriage License') {
-                            $rowStatuses = ['Filed','Paid','Posted','Released'];
-                        } elseif ($s->service_type === 'Delayed Registration') {
-                            $rowStatuses = $delayedStatuses;
-                        } elseif ($s->service_type === 'Frontline Service') {
-                            $rowStatuses = $frontlineStatuses;
-                        } elseif ($s->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
-                            $rowStatuses = $endorsementStatuses;
-                        } elseif ($s->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
-                            $rowStatuses = $endorsementBlurredStatuses;
-                        } elseif ($s->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
-                            $rowStatuses = $endorsementLegalStatuses;
-                        } elseif ($s->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
-                            $rowStatuses = $ra9048Statuses;
-                        } elseif ($s->service_type === 'Petitions filed under RA 9048 & RA 10172') {
-                            $rowStatuses = $ra9048_10172Statuses;
+                        $rowStatuses = $statusesByType[$s->service_type] ?? $defaultStatuses;
+                        if (!in_array($s->status, $rowStatuses, true)) {
+                            $rowStatuses = array_merge([$s->status], $rowStatuses);
                         }
                     @endphp
                     <div class="bg-white border rounded-md p-3">
@@ -389,7 +481,7 @@
                                 @csrf
                                 @method('PUT')
                                 <label class="sr-only" for="status-{{ $s->id }}">Status</label>
-                                <select id="status-{{ $s->id }}" name="status" class="border-gray-300 rounded-md text-sm px-2 py-1" onchange="this.form.submit()">
+                                <select id="status-{{ $s->id }}" name="status" class="rounded-md text-sm px-2 py-1 border border-gray-300" style="background-color: {{ $statusDropdownBg[$s->status] ?? '#f9fafb' }};" onchange="this.form.submit()">
                                     @foreach($rowStatuses as $st)
                                         <option value="{{ $st }}" @selected($s->status === $st)>{{ $st }}</option>
                                     @endforeach
@@ -481,15 +573,13 @@
                 if (ms) ms.value = n;
             });
             function bindSelectAll(){
-                var selectAll = document.getElementById('select_all');
-                var rowCheckboxes = document.querySelectorAll('.row-select');
-                if (selectAll) {
-                    selectAll.addEventListener('change', function() {
-                        rowCheckboxes.forEach(function(cb) { 
-                            cb.checked = selectAll.checked; 
-                        });
-                    });
-                }
+                var container = document.getElementById('services_table_container');
+                var selectAll = container ? container.querySelector('#select_all') : document.getElementById('select_all');
+                if (!selectAll) return;
+                selectAll.addEventListener('change', function() {
+                    var rowCheckboxes = (container || document).querySelectorAll('.row-select');
+                    rowCheckboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
+                });
             }
             bindSelectAll();
             
@@ -576,20 +666,7 @@
             var sortSelect = document.querySelector('select[name="sort"]');
             var directionSelect = document.querySelector('select[name="direction"]');
             var tableContainer = document.getElementById('services_table_container');
-            var STATUS_MAP = {
-                'Application for Marriage License': ['Filed','Paid','Posted','Released'],
-                'Delayed Registration': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
-                'Delayed Registration of Birth': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
-                'Delayed Registration of Death': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
-                'Delayed Registration of Marriage': ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'],
-                'Frontline Service': ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'],
-                'Request for PSA documents through BREQS': ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'],
-                'Endorsement for Negative PSA - Positive LCRO': ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'],
-                'Endorsement for Blurred PSA - Clear LCRO File': ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'],
-                'Endorsement of Legal Instrument & MC 2010-04 & Court Order': ['Authenticated','Documents Submitted','Processing','Sent to PSA','PSA Feedback','Reworked and Resent','PSA No Feedback','Released'],
-                'Petitions filed under RA 9048 - Clerical Error': ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released'],
-                'Petitions filed under RA 9048 & RA 10172': ['Authenticated','Requirements Submitted','Processing','Petition Ready for Filing','Filed','Published','Decision Rendered','Sent to PSA Legal Services','PSA Impugned','Motion Prepared','Resent to PSA Legal Services','PSA Affirmed','Released']
-            };
+            var STATUS_MAP = @json($statusesByType ?? []);
             var DEFAULT_STATUSES = ['Filed','Processing','Endorsed','Released','Rejected'];
             function populateStatuses(){
                 var type = typeSelect ? typeSelect.value : '';
@@ -791,6 +868,8 @@
                 if (sortVal) params.set('sort', sortVal);
                 if (dirVal) params.set('direction', dirVal);
                 if (q.trim() !== '') params.set('name', q.trim());
+                var currentPage = new URLSearchParams(window.location.search).get('page');
+                if (currentPage) params.set('page', currentPage);
                 var url = base + (params.toString() ? ('?' + params.toString()) : '');
                 history.replaceState({}, '', url);
                 fetch(url, { headers: { 'Accept': 'text/html' } })
@@ -804,10 +883,18 @@
                         var oldContainer = document.getElementById('services_table_container');
                         var newMobile = doc.getElementById('services_mobile_container');
                         var oldMobile = document.getElementById('services_mobile_container');
+                        var newPagination = doc.getElementById('services_pagination');
+                        var oldPagination = document.getElementById('services_pagination');
                         if (newContainer && oldContainer) {
                             oldContainer.innerHTML = newContainer.innerHTML;
+                            bindSelectAll();
                             rebindRowClicks();
                             if (typeof window.rebindStatusAjax === 'function') window.rebindStatusAjax();
+                        }
+                        if (newPagination && oldPagination) {
+                            oldPagination.innerHTML = newPagination.innerHTML;
+                            oldPagination.className = newPagination.className;
+                            oldPagination.classList.remove('hidden');
                         }
                         if (newMobile && oldMobile) {
                             oldMobile.innerHTML = newMobile.innerHTML;
@@ -914,6 +1001,8 @@
             }
             function autoRefresh(){
                 if (interacting) return;
+                // Don't refresh while a row is expanded so it only closes when user clicks again
+                if (document.querySelector('.details-row:not(.hidden)')) return;
                 if (typeof window.updateServicesTable === 'function') window.updateServicesTable();
             }
             document.addEventListener('visibilitychange', function(){

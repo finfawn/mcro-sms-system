@@ -49,14 +49,55 @@ Route::middleware('auth')->group(function () {
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/{id}/restore', [AdminUserController::class, 'restore'])->name('users.restore');
         Route::post('/users/{id}/force-delete', [AdminUserController::class, 'forceDelete'])->name('users.force-delete');
-            Route::post('/services/map-delayed', [ServiceController::class, 'mapDelayedTypes'])->name('services.map-delayed');
     });
 });
 
 require __DIR__.'/auth.php';
 
-// ClickSend Delivery Report webhook (public)
 Route::match(['POST'], '/webhooks/clicksend', function (Request $request) {
     \Log::info('ClickSend Delivery Report', $request->all());
+    return response()->json(['ok' => true]);
+});
+
+Route::post('/webhooks/textbee', function (Request $request) {
+    $payload = $request->all();
+    $to = (string)($payload['to'] ?? '');
+    $status = strtolower((string)($payload['status'] ?? ''));
+    $event = (string)($payload['event'] ?? ($payload['event_key'] ?? ''));
+    $normalize = function(string $n): string {
+        $t = trim($n);
+        if ($t === '') return '';
+        if (str_starts_with($t, '+')) return $t;
+        $digits = preg_replace('/\D+/', '', $t);
+        if (str_starts_with($digits, '63')) return '+'.$digits;
+        if (str_starts_with($digits, '0')) return '+63'.substr($digits, 1);
+        return '+'.$digits;
+    };
+    $toNorm = $normalize($to);
+    $q = \App\Models\SmsMessage::query()
+        ->where('provider', 'textbee')
+        ->when($toNorm !== '', fn($qq) => $qq->where('to', $toNorm))
+        ->when($event !== '', fn($qq) => $qq->where('event_key', $event))
+        ->whereIn('status', ['dispatched','queued'])
+        ->orderBy('created_at', 'desc');
+    $msg = $q->first();
+    if (!$msg) {
+        \Log::warning('TextBee webhook: no matching queued message', [
+            'to' => $toNorm ?: $to,
+            'event' => $event,
+            'payload' => $payload,
+        ]);
+        return response()->json(['ok' => true]);
+    }
+    if (in_array($status, ['sent','delivered','success'], true)) {
+        $msg->status = 'sent';
+        $msg->error = null;
+    } elseif (in_array($status, ['failed','error'], true)) {
+        $msg->status = 'failed';
+        $msg->error = (string)($payload['error'] ?? 'failed');
+    } else {
+        $msg->status = 'sent';
+    }
+    $msg->save();
     return response()->json(['ok' => true]);
 });

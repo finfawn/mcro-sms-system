@@ -30,7 +30,6 @@
                                         'Delayed Registration of Birth',
                                         'Delayed Registration of Death',
                                         'Delayed Registration of Marriage',
-                                        'Delayed Registration',
                                         'Petition',
                                         'Legal Instrument - Legitimation',
                                         'Supplemental Report',
@@ -39,6 +38,9 @@
                                     @foreach($types as $t)
                                         <option value="{{ $t }}" @selected(old('service_type', $service->service_type)===$t)>{{ $t }}</option>
                                     @endforeach
+                                    @if(old('service_type', $service->service_type)==='Delayed Registration')
+                                        <option value="Delayed Registration" selected disabled>Delayed Registration (legacy)</option>
+                                    @endif
                                 </select>
                                 @error('service_type')<div class="text-sm text-red-600 mt-1">{{ $message }}</div>@enderror
                             </div>

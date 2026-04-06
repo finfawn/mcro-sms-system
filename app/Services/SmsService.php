@@ -50,6 +50,12 @@ class SmsService
             ->where('event_key', $event_key)
             ->where('is_active', true)
             ->first();
+        if (!$template && in_array($service->service_type, config('sms.frontline_service_types', []), true)) {
+            $template = SmsTemplate::whereIn('service_type', config('sms.frontline_service_types', []))
+                ->where('event_key', $event_key)
+                ->where('is_active', true)
+                ->first();
+        }
         $body = $template ? $template->template_body : $this->fallbackBody($service, $event_key);
         if (!$body) {
             return;
@@ -65,7 +71,7 @@ class SmsService
                 'body' => $body,
                 'provider' => (string)config('sms.provider', 'log'),
                 'event_key' => $event_key,
-                'status' => 'queued',
+                'status' => (bool)config('sms.mark_sent_on_accept', false) ? 'sent' : 'queued',
                 'error' => null,
             ]);
             Log::info('SMS queued', [
@@ -118,10 +124,9 @@ class SmsService
                 return 'Good day! Your Marriage License is now available for release. Please claim it at the MCRO office during office hours.';
             }
         }
-        if ($service->service_type === 'Request for PSA documents through BREQS') {
-            if ($event_key === 'ready_for_pickup') {
-                return 'Good day! Your document is ready for pick up. Please bring your claim stub to the MCRO office during office hours.';
-            }
+        $frontlineTypes = config('sms.frontline_service_types', []);
+        if (in_array($service->service_type, $frontlineTypes, true) && $event_key === 'ready_for_pickup') {
+            return 'Good day {{citizen_name}} (Ref: {{reference_no}}). Your document is ready for pick up. Please bring your claim stub to the MCRO office during office hours.';
         }
         if ($service->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
             if ($event_key === 'psa_sent') {

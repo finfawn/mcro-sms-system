@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('service:run-automation')->dailyAt('01:00');
+        $schedule->command('queue:work --stop-when-empty --sleep=1 --timeout=120 --tries=3')->everyMinute()->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

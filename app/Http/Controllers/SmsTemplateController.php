@@ -16,6 +16,20 @@ class SmsTemplateController extends Controller
             ->orderBy('event_key')
             ->get()
             ->groupBy('service_type');
+        $extras = [
+            'Delayed Registration of Birth',
+            'Delayed Registration of Death',
+            'Delayed Registration of Marriage',
+        ];
+        foreach ($extras as $x) {
+            if (!$grouped->has($x)) {
+                $grouped[$x] = collect();
+            }
+        }
+        if ($grouped->has('Delayed Registration')) {
+            $grouped->forget('Delayed Registration');
+        }
+        $grouped = $grouped->sortKeys();
         $current = request('service_type');
         $currentTemplates = $current ? ($grouped[$current] ?? collect()) : collect();
         $orders = [

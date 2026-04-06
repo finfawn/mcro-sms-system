@@ -8,6 +8,7 @@ use App\Models\SmsTemplate;
 use App\Models\SmsMessage;
 use App\Services\SmsService;
 use App\Automation\AutomationEngine;
+use App\Jobs\SendSmsJob;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +19,71 @@ class ServiceController extends Controller
 {
     protected AutomationEngine $automation;
     protected SmsService $sms;
+    /** Event keys from SMS templates map to these status labels (for status dropdowns driven by templates). */
+    protected function eventKeyToStatusMap(): array
+    {
+        return [
+            'ready_for_pickup' => 'Ready for Pickup',
+            'released' => 'Released',
+            'releasing' => 'Released',
+            'posting_notice' => 'Posted',
+            'verification_started' => 'Under Verification',
+            'requirements_incomplete' => 'Inconsistent',
+            'verification_consistent' => 'Consistent',
+            'ready_for_release' => 'Ready for Release',
+            'psa_sent' => 'Sent to PSA',
+            'psa_feedback_received' => 'PSA Has Feedback',
+            'psa_resent_for_processing' => 'Reworked and Resent',
+            'psa_no_feedback_uploaded' => 'PSA Successfully Uploaded',
+            'petition_ready_for_filing' => 'For Filing',
+            'petition_ready_for_posting' => 'Posted',
+            'sent_to_psa_legal' => 'Sent to PSA',
+            'psa_affirmed' => 'Affirmed',
+            'psa_impugned' => 'Impugned',
+            'petition_published' => 'Published',
+        ];
+    }
+
+    /** Service types that are frontline services (SMS-driven status dropdown for all of these). */
+    protected function frontlineServiceTypes(): array
+    {
+        return config('sms.frontline_service_types', [
+            'Frontline Service',
+            'Request for PSA documents through BREQS',
+        ]);
+    }
+
+    /** Statuses that have an SMS template or trigger SMS for this service type (used for all frontline dropdowns). */
+    protected function statusesWithSmsForType(string $type): array
+    {
+        $map = $this->eventKeyToStatusMap();
+        $frontline = $this->frontlineServiceTypes();
+        $serviceTypes = in_array($type, $frontline, true)
+            ? $frontline
+            : [$type];
+        $eventKeys = SmsTemplate::whereIn('service_type', $serviceTypes)
+            ->where('is_active', true)
+            ->distinct()
+            ->pluck('event_key')
+            ->toArray();
+        $statuses = [];
+        foreach ($eventKeys as $key) {
+            if (isset($map[$key]) && !in_array($map[$key], $statuses, true)) {
+                $statuses[] = $map[$key];
+            }
+        }
+        if (in_array($type, $frontline, true)) {
+            if (!in_array('Released', $statuses, true)) {
+                $statuses[] = 'Released';
+            }
+            // Prepend Drafted so frontline starts as Drafted (avoids confusion with Filed)
+            if (!in_array('Drafted', $statuses, true)) {
+                array_unshift($statuses, 'Drafted');
+            }
+        }
+        return $statuses;
+    }
+
     protected function statusesForType(string $type): array
     {
         $default = ['Filed','Processing','Endorsed','Released','Rejected'];
@@ -32,11 +98,8 @@ class ServiceController extends Controller
         ) {
             return ['Filed','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Released','Rejected'];
         }
-        if ($type === 'Frontline Service') {
-            return ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
-        }
-        if ($type === 'Request for PSA documents through BREQS') {
-            return ['Authenticated','Form Filled','Submitted','Paid','Claim Stub Issued','Ready for Pickup','Released'];
+        if (in_array($type, $this->frontlineServiceTypes(), true)) {
+            return $this->statusesWithSmsForType($type);
         }
         if ($type === 'Endorsement for Negative PSA - Positive LCRO') {
             return ['Filed','Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'];
@@ -55,15 +118,24 @@ class ServiceController extends Controller
         }
         return $default;
     }
+
+    /** Use "Drafted" as initial status when creating entries for types that have "For Filing" (avoids confusion with "Filed"). */
+    protected function useDraftedAsInitialStatus(string $type): bool
+    {
+        if (in_array($type, $this->frontlineServiceTypes(), true)) {
+            return true;
+        }
+        return in_array('For Filing', $this->statusesForType($type), true);
+    }
+
     protected function allowsBackwards(string $type): bool
     {
+        // Only allow moving back for flows where PSA returns feedback/rework (redo documents, resubmit)
         $backtrackTypes = [
             'Delayed Registration',
             'Delayed Registration of Birth',
             'Delayed Registration of Death',
             'Delayed Registration of Marriage',
-            'Frontline Service',
-            'Request for PSA documents through BREQS',
             'Endorsement for Negative PSA - Positive LCRO',
             'Endorsement for Blurred PSA - Clear LCRO File',
             'Endorsement of Legal Instrument & MC 2010-04 & Court Order',
@@ -111,14 +183,36 @@ class ServiceController extends Controller
         ];
         $column = $sortMap[$sort] ?? 'updated_at';
 
-        $services = $query->orderBy($column, $direction)->get();
-        $types = Service::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
+        $services = $query->orderBy($column, $direction)->paginate(50)->withQueryString();
+        $typesCol = SmsTemplate::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type')->toArray();
+        $extra = [
+            'Application for Marriage License',
+            'Delayed Registration',
+            'Delayed Registration of Birth',
+            'Delayed Registration of Death',
+            'Delayed Registration of Marriage',
+            'Frontline Service',
+            'Request for PSA documents through BREQS',
+            'Endorsement for Negative PSA - Positive LCRO',
+            'Endorsement for Blurred PSA - Clear LCRO File',
+            'Endorsement of Legal Instrument & MC 2010-04 & Court Order',
+            'Petitions filed under RA 9048 - Clerical Error',
+            'Petitions filed under RA 9048 & RA 10172',
+        ];
+        $types = collect(array_values(array_unique(array_merge($typesCol, $extra))))->sort()->values();
         $statusOptions = ['Filed','Processing','Paid','Under Verification','Consistent','Inconsistent','Posted','Ready for Release','Endorsed','Released','Rejected'];
+
+        $statusesByType = [];
+        $allTypes = $types->merge($extra)->unique()->values()->all();
+        foreach ($allTypes as $t) {
+            $statusesByType[$t] = $this->statusesForType($t);
+        }
 
         return view('services.index', [
             'services' => $services,
             'types' => $types,
             'statusOptions' => $statusOptions,
+            'statusesByType' => $statusesByType,
             'serviceType' => $serviceType,
             'status' => $status,
             'name' => $name,
@@ -128,18 +222,20 @@ class ServiceController extends Controller
     }
     public function show(Service $service): View
     {
+        $service->load('statusLogs.user');
         return view('services.show', compact('service'));
     }
 
     public function create(): View
     {
-        $typesCol = SmsTemplate::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type');
+        $typesCol = SmsTemplate::select('service_type')->distinct()->orderBy('service_type')->pluck('service_type')->toArray();
+        $typesCol = array_values(array_filter($typesCol, function($t){ return $t !== 'Delayed Registration'; }));
         $extra = [
             'Delayed Registration of Birth',
             'Delayed Registration of Death',
             'Delayed Registration of Marriage',
         ];
-        $merged = collect(array_values(array_unique(array_merge($typesCol->toArray(), $extra))));
+        $merged = collect(array_values(array_unique(array_merge($typesCol, $extra))));
         return view('services.create', ['types' => $merged]);
     }
 
@@ -171,12 +267,13 @@ class ServiceController extends Controller
             $referenceNo = $prefix.str_pad((string) $seq, 6, '0', STR_PAD_LEFT);
         }
 
+        $initialStatus = $this->useDraftedAsInitialStatus($validated['service_type']) ? 'Drafted' : 'Filed';
         Service::create([
             'reference_no' => $referenceNo,
             'citizen_name' => $validated['citizen_name'],
             'mobile_number' => $validated['mobile_number'],
             'service_type' => $validated['service_type'],
-            'status' => 'Filed',
+            'status' => $initialStatus,
             'notes' => $validated['notes'] ?? null,
         ]);
 
@@ -184,7 +281,7 @@ class ServiceController extends Controller
         if ($svc) {
             ServiceStatusLog::create([
                 'service_id' => $svc->id,
-                'status' => 'Filed',
+                'status' => $initialStatus,
                 'note' => null,
                 'user_id' => optional(auth()->user())->id,
             ]);
@@ -196,6 +293,9 @@ class ServiceController extends Controller
     public function edit(Service $service): View
     {
         $statuses = $this->statusesForType($service->service_type);
+        if (!in_array($service->status, $statuses, true)) {
+            $statuses = array_merge([$service->status], $statuses);
+        }
         return view('services.edit', [
             'service' => $service,
             'statuses' => $statuses,
@@ -245,22 +345,22 @@ class ServiceController extends Controller
             'Delayed Registration of Marriage',
         ], true)) {
             if ($previousStatus !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                $this->sms->send($service, 'verification_started');
+                SendSmsJob::dispatch($service->id, 'verification_started');
             }
             if ($previousStatus !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                $this->sms->send($service, 'requirements_incomplete');
+                SendSmsJob::dispatch($service->id, 'requirements_incomplete');
             }
             if ($previousStatus !== 'Consistent' && $validated['status'] === 'Consistent') {
-                $this->sms->send($service, 'verification_consistent');
+                SendSmsJob::dispatch($service->id, 'verification_consistent');
             }
         }
         if (
-            $validated['service_type'] === 'Request for PSA documents through BREQS' &&
+            in_array($validated['service_type'], $this->frontlineServiceTypes(), true) &&
             $previousStatus !== 'Ready for Pickup' &&
             $validated['status'] === 'Ready for Pickup' &&
             !$service->sms_ready_sent
         ) {
-            $this->sms->send($service, 'ready_for_pickup');
+            SendSmsJob::dispatch($service->id, 'ready_for_pickup');
             $service->sms_ready_sent = true;
             $service->save();
         }
@@ -271,7 +371,7 @@ class ServiceController extends Controller
             !$service->sms_posting_sent
         ) {
             $service->posting_start_date = now()->toDateString();
-            $this->sms->send($service, 'posting_notice');
+            SendSmsJob::dispatch($service->id, 'posting_notice');
             $service->sms_posting_sent = true;
             $service->save();
         }
@@ -392,19 +492,20 @@ class ServiceController extends Controller
                 $referenceNo = $prefix.str_pad((string) $seq, 6, '0', STR_PAD_LEFT);
             }
             $seq++;
+            $initialStatus = $this->useDraftedAsInitialStatus($stype) ? 'Drafted' : 'Filed';
             Service::create([
                 'reference_no' => $referenceNo,
                 'citizen_name' => $name,
                 'mobile_number' => $mobile,
                 'service_type' => $stype,
-                'status' => 'Filed',
+                'status' => $initialStatus,
                 'notes' => $notes !== '' ? $notes : null,
             ]);
             $svc = Service::where('reference_no', $referenceNo)->first();
             if ($svc) {
                 ServiceStatusLog::create([
                     'service_id' => $svc->id,
-                    'status' => 'Filed',
+                    'status' => $initialStatus,
                     'note' => null,
                 ]);
             }
@@ -445,35 +546,6 @@ class ServiceController extends Controller
             'Content-Type' => 'application/vnd.ms-excel',
             'Content-Disposition' => 'attachment; filename=services_export_'.$date.'.xls',
         ]);
-    }
-    public function mapDelayedTypes(): RedirectResponse
-    {
-        $services = Service::where('service_type', 'Delayed Registration')->get();
-        $birth = 0; $death = 0; $marriage = 0; $unchanged = 0;
-        foreach ($services as $s) {
-            $txt = strtolower((string)($s->notes ?? ''));
-            $target = null;
-            if ($txt !== '') {
-                if (str_contains($txt, 'birth') || str_contains($txt, 'live birth')) {
-                    $target = 'Delayed Registration of Birth';
-                } elseif (str_contains($txt, 'death') || str_contains($txt, 'deceased')) {
-                    $target = 'Delayed Registration of Death';
-                } elseif (str_contains($txt, 'marriage') || str_contains($txt, 'wedding')) {
-                    $target = 'Delayed Registration of Marriage';
-                }
-            }
-            if ($target) {
-                $s->service_type = $target;
-                $s->save();
-                if ($target === 'Delayed Registration of Birth') $birth++;
-                elseif ($target === 'Delayed Registration of Death') $death++;
-                elseif ($target === 'Delayed Registration of Marriage') $marriage++;
-            } else {
-                $unchanged++;
-            }
-        }
-        $msg = 'Split completed: Birth '.$birth.', Death '.$death.', Marriage '.$marriage.', Unchanged '.$unchanged;
-        return redirect()->route('services.index')->with('status', $msg);
     }
 
     private function parseXlsx(string $path): array
@@ -808,6 +880,7 @@ class ServiceController extends Controller
         $services = Service::with('statusLogs')->get();
         $triggerMap = [
             'Application for Marriage License' => ['Posted'],
+            'Frontline Service' => ['Ready for Pickup'],
             'Request for PSA documents through BREQS' => ['Ready for Pickup'],
             'Delayed Registration' => ['Under Verification','Inconsistent','Consistent'],
             'Endorsement for Negative PSA - Positive LCRO' => ['Sent to PSA','PSA Has Feedback','Reworked and Resent','PSA Successfully Uploaded'],
@@ -865,9 +938,15 @@ class ServiceController extends Controller
         $countToday = count($schedToday);
         $countWeek = count($schedWeek);
         $countMonth = count($schedMonth);
-        $recentSms = Schema::hasTable('sms_messages')
-            ? SmsMessage::with('service')->orderBy('created_at', 'desc')->limit(20)->get()
-            : collect();
+        if (Schema::hasTable('sms_messages')) {
+            $recentSmsQuery = SmsMessage::with('service')->orderBy('created_at', 'desc');
+            if ($request->query('service_type')) {
+                $recentSmsQuery->whereHas('service', fn ($q) => $q->where('service_type', $request->query('service_type')));
+            }
+            $recentSms = $recentSmsQuery->paginate(50)->withQueryString();
+        } else {
+            $recentSms = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
+        }
         return view('dashboard', array_merge($data, [
             'messagesToday' => $messagesToday,
             'messages30Days' => $messages30Days,
@@ -892,7 +971,7 @@ class ServiceController extends Controller
             'status' => ['required', 'string', 'max:50'],
         ]);
         $allowed = $this->statusesForType($service->service_type);
-        if (!in_array($validated['status'], $allowed, true)) {
+        if (!in_array($validated['status'], $allowed, true) && $validated['status'] !== $service->status) {
             return redirect()->route('services.index')->with('status', 'Status not allowed for '.$service->service_type);
         }
         $prev = $service->status;
@@ -922,22 +1001,22 @@ class ServiceController extends Controller
         }
         if ($service->service_type === 'Delayed Registration') {
             if ($prev !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                $this->sms->send($service, 'verification_started');
+                SendSmsJob::dispatch($service->id, 'verification_started');
             }
             if ($prev !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                $this->sms->send($service, 'requirements_incomplete');
+                SendSmsJob::dispatch($service->id, 'requirements_incomplete');
             }
             if ($prev !== 'Consistent' && $validated['status'] === 'Consistent') {
-                $this->sms->send($service, 'verification_consistent');
+                SendSmsJob::dispatch($service->id, 'verification_consistent');
             }
         }
         if (
-            $service->service_type === 'Request for PSA documents through BREQS' &&
+            in_array($service->service_type, $this->frontlineServiceTypes(), true) &&
             $prev !== 'Ready for Pickup' &&
             $validated['status'] === 'Ready for Pickup' &&
             !$service->sms_ready_sent
         ) {
-            $this->sms->send($service, 'ready_for_pickup');
+            SendSmsJob::dispatch($service->id, 'ready_for_pickup');
             $service->sms_ready_sent = true;
             $service->save();
         }
@@ -948,22 +1027,22 @@ class ServiceController extends Controller
             !$service->sms_posting_sent
         ) {
             $service->posting_start_date = now()->toDateString();
-            $this->sms->send($service, 'posting_notice');
+            SendSmsJob::dispatch($service->id, 'posting_notice');
             $service->sms_posting_sent = true;
             $service->save();
         }
         if ($service->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
             if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                $this->sms->send($service, 'psa_sent');
+                    SendSmsJob::dispatch($service->id, 'psa_sent');
             }
             if ($prev !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
-                $this->sms->send($service, 'psa_feedback_received');
+                    SendSmsJob::dispatch($service->id, 'psa_feedback_received');
             }
             if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
-                $this->sms->send($service, 'psa_resent_for_processing');
+                    SendSmsJob::dispatch($service->id, 'psa_resent_for_processing');
             }
             if ($prev !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$service->sms_ready_sent) {
-                $this->sms->send($service, 'psa_no_feedback_uploaded');
+                    SendSmsJob::dispatch($service->id, 'psa_no_feedback_uploaded');
                 $service->sms_ready_sent = true;
                 $service->save();
             }
@@ -1089,22 +1168,22 @@ class ServiceController extends Controller
             }
             if ($svc->service_type === 'Delayed Registration') {
                 if ($prevStatus !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                    $this->sms->send($svc, 'verification_started');
+                    SendSmsJob::dispatch($svc->id, 'verification_started');
                 }
                 if ($prevStatus !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                    $this->sms->send($svc, 'requirements_incomplete');
+                    SendSmsJob::dispatch($svc->id, 'requirements_incomplete');
                 }
                 if ($prevStatus !== 'Consistent' && $validated['status'] === 'Consistent') {
-                    $this->sms->send($svc, 'verification_consistent');
+                    SendSmsJob::dispatch($svc->id, 'verification_consistent');
                 }
             }
             if (
-                $svc->service_type === 'Request for PSA documents through BREQS' &&
+                in_array($svc->service_type, $this->frontlineServiceTypes(), true) &&
                 $prevStatus !== 'Ready for Pickup' &&
                 $validated['status'] === 'Ready for Pickup' &&
                 !$svc->sms_ready_sent
             ) {
-                $this->sms->send($svc, 'ready_for_pickup');
+                SendSmsJob::dispatch($svc->id, 'ready_for_pickup');
                 $svc->sms_ready_sent = true;
                 $svc->save();
             }
@@ -1115,38 +1194,38 @@ class ServiceController extends Controller
                 !$svc->sms_posting_sent
             ) {
                 $svc->posting_start_date = now()->toDateString();
-                $this->sms->send($svc, 'posting_notice');
+                SendSmsJob::dispatch($svc->id, 'posting_notice');
                 $svc->sms_posting_sent = true;
                 $svc->save();
             }
             if ($svc->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    $this->sms->send($svc, 'psa_sent');
+                    SendSmsJob::dispatch($svc->id, 'psa_sent');
                 }
                 if ($prevStatus !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
-                    $this->sms->send($svc, 'psa_feedback_received');
+                    SendSmsJob::dispatch($svc->id, 'psa_feedback_received');
                 }
                 if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
-                    $this->sms->send($svc, 'psa_resent_for_processing');
+                    SendSmsJob::dispatch($svc->id, 'psa_resent_for_processing');
                 }
                 if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
-                    $this->sms->send($svc, 'psa_no_feedback_uploaded');
+                    SendSmsJob::dispatch($svc->id, 'psa_no_feedback_uploaded');
                     $svc->sms_ready_sent = true;
                     $svc->save();
                 }
             }
             if ($svc->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    $this->sms->send($svc, 'psa_sent');
+                    SendSmsJob::dispatch($svc->id, 'psa_sent');
                 }
                 if ($prevStatus !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
-                    $this->sms->send($svc, 'psa_feedback_received');
+                    SendSmsJob::dispatch($svc->id, 'psa_feedback_received');
                 }
                 if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
-                    $this->sms->send($svc, 'psa_resent_for_processing');
+                    SendSmsJob::dispatch($svc->id, 'psa_resent_for_processing');
                 }
                 if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
-                    $this->sms->send($svc, 'psa_no_feedback_uploaded');
+                    SendSmsJob::dispatch($svc->id, 'psa_no_feedback_uploaded');
                     $svc->sms_ready_sent = true;
                     $svc->save();
                 }
@@ -1169,42 +1248,42 @@ class ServiceController extends Controller
             }
             if ($svc->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
                 if ($prevStatus !== 'For Filing' && $validated['status'] === 'For Filing') {
-                    $this->sms->send($svc, 'petition_ready_for_filing');
+                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_filing');
                 }
                 if ($prevStatus !== 'Posted' && $validated['status'] === 'Posted' && !$svc->sms_posting_sent) {
                     $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
-                    $this->sms->send($svc, 'petition_ready_for_posting');
+                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_posting');
                     $svc->sms_posting_sent = true;
                     $svc->save();
                 }
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    $this->sms->send($svc, 'sent_to_psa_legal');
+                    SendSmsJob::dispatch($svc->id, 'sent_to_psa_legal');
                 }
                 if ($prevStatus !== 'Affirmed' && $validated['status'] === 'Affirmed') {
-                    $this->sms->send($svc, 'psa_affirmed');
+                    SendSmsJob::dispatch($svc->id, 'psa_affirmed');
                 }
                 if ($prevStatus !== 'Impugned' && $validated['status'] === 'Impugned') {
-                    $this->sms->send($svc, 'psa_impugned');
+                    SendSmsJob::dispatch($svc->id, 'psa_impugned');
                 }
             }
             if ($svc->service_type === 'Petitions filed under RA 9048 & RA 10172') {
                 if ($prevStatus !== 'For Filing' && $validated['status'] === 'For Filing') {
-                    $this->sms->send($svc, 'petition_ready_for_filing');
+                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_filing');
                 }
                 if ($prevStatus !== 'Posted' && $validated['status'] === 'Posted' && !$svc->sms_posting_sent) {
                     $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
-                    $this->sms->send($svc, 'petition_ready_for_posting');
+                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_posting');
                     $svc->sms_posting_sent = true;
                     $svc->save();
                 }
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    $this->sms->send($svc, 'sent_to_psa_legal');
+                    SendSmsJob::dispatch($svc->id, 'sent_to_psa_legal');
                 }
                 if ($prevStatus !== 'Affirmed' && $validated['status'] === 'Affirmed') {
-                    $this->sms->send($svc, 'psa_affirmed');
+                    SendSmsJob::dispatch($svc->id, 'psa_affirmed');
                 }
                 if ($prevStatus !== 'Impugned' && $validated['status'] === 'Impugned') {
-                    $this->sms->send($svc, 'psa_impugned');
+                    SendSmsJob::dispatch($svc->id, 'psa_impugned');
                 }
             }
             $updatedCount++;

@@ -26,7 +26,7 @@ return new class extends Migration
                 $table->boolean('is_active')->default(true)->after('template_body');
             }
             if (Schema::hasColumn('sms_templates', 'code')) {
-                DB::statement('DROP INDEX IF EXISTS sms_templates_code_unique');
+                $table->dropUnique('sms_templates_code_unique');
                 $table->dropColumn('code');
             }
             if (Schema::hasColumn('sms_templates', 'name')) {

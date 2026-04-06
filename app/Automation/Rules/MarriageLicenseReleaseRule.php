@@ -6,6 +6,7 @@ use App\Automation\ServiceAutomationRule;
 use App\Models\Service;
 use App\Models\ServiceStatusLog;
 use App\Services\SmsService;
+use App\Jobs\SendSmsJob;
 use Carbon\Carbon;
 
 class MarriageLicenseReleaseRule implements ServiceAutomationRule
@@ -45,7 +46,7 @@ class MarriageLicenseReleaseRule implements ServiceAutomationRule
             $service->release_date = Carbon::today();
             $service->sms_release_sent = true;
             $service->save();
-            $this->smsService->send($service, 'releasing');
+            SendSmsJob::dispatch($service->id, 'releasing');
             ServiceStatusLog::create([
                 'service_id' => $service->id,
                 'status' => 'Released',

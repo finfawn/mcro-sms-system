@@ -252,6 +252,9 @@
                 @csrf
                 <input type="hidden" name="status" id="bulkContextStatus">
             </form>
+            <form id="bulkDeleteForm" action="{{ route('services.bulk-delete') }}" method="POST" class="d-none">
+                @csrf
+            </form>
             
             <div id="services_table_container" class="bg-white border rounded-md overflow-x-auto overflow-y-auto hidden md:block relative max-h-[70vh]">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -560,6 +563,10 @@
     <div id="bulkContextMenu" class="bg-white border rounded shadow-sm text-sm" style="position:fixed; display:none; z-index:1000; min-width: 200px;">
         <div class="px-3 py-2 text-gray-500">Set status</div>
         <div id="bulkActions"></div>
+        @if((Auth::user()->role ?? 'user') === 'admin')
+            <div class="border-t border-gray-100 my-1"></div>
+            <div id="bulkDangerActions"></div>
+        @endif
         <div class="px-3 py-2 text-gray-500 hidden" id="noSelectionNote">Select rows first</div>
         <div class="px-3 py-2 text-gray-500 hidden" id="noCommonNote">No common statuses</div>
     </div>
@@ -590,7 +597,9 @@
             var note = document.getElementById('noSelectionNote');
             var noCommon = document.getElementById('noCommonNote');
             var actions = document.getElementById('bulkActions');
+            var dangerActions = document.getElementById('bulkDangerActions');
             var bulkForm = document.getElementById('bulkContextForm');
+            var bulkDeleteForm = document.getElementById('bulkDeleteForm');
             var statusField = document.getElementById('bulkContextStatus');
             
             function hideMenu() { 
@@ -612,6 +621,9 @@
                     note.classList.toggle('hidden', hasSelection);
                     noCommon.classList.add('hidden');
                     while (actions.firstChild) actions.removeChild(actions.firstChild);
+                    if (dangerActions) {
+                        while (dangerActions.firstChild) dangerActions.removeChild(dangerActions.firstChild);
+                    }
                     if (hasSelection) {
                         var types = selected.map(function(cb){ 
                             var tr = cb.closest('tr'); 
@@ -647,6 +659,27 @@
                             });
                         } else {
                             noCommon.classList.remove('hidden');
+                        }
+                        if (dangerActions && bulkDeleteForm) {
+                            var deleteBtn = document.createElement('button');
+                            deleteBtn.type = 'button';
+                            deleteBtn.className = 'w-full text-left px-3 py-2 text-red-700 hover:bg-red-50 context-action';
+                            deleteBtn.textContent = 'Delete selected';
+                            deleteBtn.addEventListener('click', function(){
+                                if (!confirm('Delete the selected service entries?')) return;
+                                var existing = bulkDeleteForm.querySelectorAll('input[name=\"ids[]\"]');
+                                existing.forEach(function(el){ el.remove(); });
+                                selected.forEach(function(cb){
+                                    var hidden = document.createElement('input');
+                                    hidden.type = 'hidden';
+                                    hidden.name = 'ids[]';
+                                    hidden.value = cb.value;
+                                    bulkDeleteForm.appendChild(hidden);
+                                });
+                                bulkDeleteForm.submit();
+                                hideMenu();
+                            });
+                            dangerActions.appendChild(deleteBtn);
                         }
                     }
                     

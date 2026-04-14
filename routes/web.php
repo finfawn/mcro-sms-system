@@ -36,6 +36,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/services/{service}/status', [ServiceController::class, 'updateStatus'])->name('services.update-status');
     Route::post('/services/{service}/scheduled-action', [ServiceController::class, 'runScheduledAction'])->name('services.scheduled-action');
     Route::post('/services/bulk-status', [ServiceController::class, 'bulkStatus'])->name('services.bulk-status');
+    Route::post('/services/bulk-delete', [ServiceController::class, 'bulkDelete'])->middleware('admin')->name('services.bulk-delete');
     Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->middleware('admin')->name('services.destroy');
     Route::post('/services/{id}/restore', [ServiceController::class, 'restore'])->middleware('admin')->name('services.restore');
     Route::post('/services/{id}/force-delete', [ServiceController::class, 'forceDelete'])->middleware('admin')->name('services.force-delete');

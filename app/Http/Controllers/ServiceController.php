@@ -1350,6 +1350,20 @@ class ServiceController extends Controller
         return redirect()->route('services.index')->with('status', 'Updated: '.$updatedCount.'. Skipped: '.$skippedCount);
     }
 
+    public function bulkDelete(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $deletedCount = Service::whereIn('id', $validated['ids'])
+            ->whereNull('deleted_at')
+            ->delete();
+
+        return redirect()->route('services.index')->with('status', 'Deleted: '.$deletedCount.' service entr'.($deletedCount === 1 ? 'y' : 'ies'));
+    }
+
     public function clearSmsHistory(): RedirectResponse
     {
         if (!\Schema::hasTable('sms_messages')) {

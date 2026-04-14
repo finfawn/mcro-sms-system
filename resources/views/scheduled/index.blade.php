@@ -5,7 +5,7 @@
         </div>
     </x-slot>
     <div class="py-4">
-        <div class="max-w-7xl mx-auto px-4">
+        <div class="app-shell">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div class="bg-white border rounded-md p-4">
                     <div class="text-xs text-gray-500">Due Today</div>
@@ -56,6 +56,7 @@
                             <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Citizen</th>
                             <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Planned Message</th>
                             <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Status</th>
+                            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -83,10 +84,23 @@
                                         {{ $isOverdue ? 'Overdue' : ($isSoon ? 'Due Soon' : 'Scheduled') }}
                                     </span>
                                 </td>
+                                <td class="px-3 py-2">
+                                    @if(($it['event'] ?? null) === 'releasing' && $due->lte(\Illuminate\Support\Carbon::today()))
+                                        <form method="POST" action="{{ route('services.scheduled-action', $it['service']) }}">
+                                            @csrf
+                                            <input type="hidden" name="event" value="{{ $it['event'] }}">
+                                            <button type="submit" class="inline-flex items-center rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700">
+                                                Send now
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="text-xs text-gray-400">â€”</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-3 py-4 text-center text-gray-500">No scheduled messages yet</td>
+                                <td colspan="7" class="px-3 py-4 text-center text-gray-500">No scheduled messages yet</td>
                             </tr>
                         @endforelse
                     </tbody>

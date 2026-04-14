@@ -1,6 +1,6 @@
 <x-app-layout>
     <div class="py-4">
-        <div class="max-w-7xl mx-auto px-4">
+        <div class="app-shell">
             <div class="mb-4 rounded-xl overflow-hidden bg-white text-gray-900 shadow ring-1 ring-gray-200 relative">
                 <div class="absolute inset-y-0 left-0 w-2 bg-blue-600"></div>
                 <img src="{{ asset('logo/MCR TUBLAY LOGO..png') }}" alt="" class="hidden md:block absolute right-6 top-1/2 -translate-y-1/2 h-16 w-16 opacity-10 pointer-events-none">
@@ -85,6 +85,15 @@
                                     <a href="{{ route('services.show', $it['service']) }}" class="text-indigo-600 hover:text-indigo-700">{{ $it['service']->reference_no }}</a> · {{ $it['service']->citizen_name }}
                                 </div>
                                 <div class="text-xs text-gray-700 mt-1">{{ $it['label'] }}</div>
+                                @if(($it['event'] ?? null) === 'releasing')
+                                    <form method="POST" action="{{ route('services.scheduled-action', $it['service']) }}" class="mt-2">
+                                        @csrf
+                                        <input type="hidden" name="event" value="{{ $it['event'] }}">
+                                        <button type="submit" class="inline-flex items-center rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700">
+                                            Send now
+                                        </button>
+                                    </form>
+                                @endif
                             </div>
                         @empty
                             <div class="text-xs text-gray-500">None</div>
@@ -112,6 +121,15 @@
                                     <a href="{{ route('services.show', $it['service']) }}" class="text-indigo-600 hover:text-indigo-700">{{ $it['service']->reference_no }}</a> · {{ $it['service']->citizen_name }}
                                 </div>
                                 <div class="text-xs text-gray-700 mt-1">{{ $it['label'] }}</div>
+                                @if(($it['event'] ?? null) === 'releasing')
+                                    <form method="POST" action="{{ route('services.scheduled-action', $it['service']) }}" class="mt-2">
+                                        @csrf
+                                        <input type="hidden" name="event" value="{{ $it['event'] }}">
+                                        <button type="submit" class="inline-flex items-center rounded-md bg-amber-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-600">
+                                            Send now
+                                        </button>
+                                    </form>
+                                @endif
                             </div>
                         @empty
                             <div class="text-xs text-gray-500">None</div>

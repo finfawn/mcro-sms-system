@@ -1,6 +1,6 @@
 <nav x-data="{ open: false }" class="border-b border-gray-100 sticky top-0 z-50" style="backdrop-filter: saturate(180%) blur(10px); background-color: rgba(255,255,255,0.80);">
     <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="app-shell">
         <div class="flex justify-between h-16">
             <div class="flex">
                 <!-- Logo -->

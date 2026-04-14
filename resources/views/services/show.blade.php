@@ -9,7 +9,7 @@
         </div>
     </x-slot>
     <div class="py-4">
-        <div class="max-w-4xl mx-auto px-4">
+        <div class="app-shell-narrow">
             <div class="bg-white border rounded-md p-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>

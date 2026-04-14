@@ -11,7 +11,7 @@
         </div>
     </x-slot>
     <div class="py-4">
-        <div class="max-w-7xl mx-auto px-4">
+        <div class="app-shell">
             <div class="bg-white border rounded-md">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">

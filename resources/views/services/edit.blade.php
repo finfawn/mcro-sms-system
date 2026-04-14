@@ -6,7 +6,7 @@
         </div>
     </x-slot>
     <div class="py-4">
-        <div class="max-w-2xl mx-auto px-4">
+        <div class="app-shell-form">
             <div class="bg-white border rounded-md p-4">
                         <form method="POST" action="{{ route('services.update', $service) }}">
                             @csrf

@@ -41,19 +41,19 @@
                 @endphp
                 @if($provider === 'log')
                     <div class="px-4 py-2 bg-gray-900 text-white text-xs">
-                        <div class="max-w-7xl mx-auto flex items-center justify-between">
+                        <div class="app-shell flex items-center justify-between">
                             <div>SMS Simulation Mode is active. Messages are not sent to recipients.</div>
                         </div>
                     </div>
                 @elseif($provider === 'textbee' && !$tbReady)
                     <div class="px-4 py-2 bg-amber-600 text-white text-xs">
-                        <div class="max-w-7xl mx-auto flex items-center justify-between">
+                        <div class="app-shell flex items-center justify-between">
                             <div>SMS Gateway not configured. Set TEXTBEE_DEVICE_ID and TEXTBEE_API_KEY.</div>
                         </div>
                     </div>
                 @endif
                 @isset($header)
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                    <div class="app-shell py-3">
                         {{ $header }}
                     </div>
                 @endisset

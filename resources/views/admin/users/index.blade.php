@@ -9,7 +9,7 @@
         </div>
     </x-slot>
     <div class="py-4">
-        <div class="max-w-7xl mx-auto px-4">
+        <div class="app-shell">
             <div class="bg-white border rounded-md mb-3">
                 <form id="adminUsersFilterForm" method="GET" action="{{ route('admin.users.index') }}" class="px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="w-full md:w-96">

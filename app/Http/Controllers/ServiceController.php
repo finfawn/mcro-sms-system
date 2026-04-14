@@ -851,13 +851,21 @@ class ServiceController extends Controller
             return $a['due'] <=> $b['due'];
         });
         $type = (string) $request->query('service_type', '');
-        $filtered = array_filter($items, function ($it) use ($type) {
+        $startDate = (string) $request->query('start_date', '');
+        $endDate = (string) $request->query('end_date', '');
+        $start = $startDate !== '' ? Carbon::parse($startDate)->startOfDay() : null;
+        $end = $endDate !== '' ? Carbon::parse($endDate)->endOfDay() : null;
+        $filtered = array_filter($items, function ($it) use ($type, $start, $end) {
             if ($type && $it['service']->service_type !== $type) return false;
+            if ($start && $it['due']->lt($start)) return false;
+            if ($end && $it['due']->gt($end)) return false;
             return true;
         });
         $today = Carbon::today();
+        $week = $today->copy()->addDays(7);
         $month = $today->copy()->addDays(30);
         $todayCount = count(array_filter($filtered, function ($it) use ($today) { return $it['due']->isSameDay($today); }));
+        $weekCount = count(array_filter($filtered, function ($it) use ($today, $week) { return $it['due']->gt($today) && $it['due']->lte($week); }));
         $monthCount = count(array_filter($filtered, function ($it) use ($today, $month) { return $it['due']->gte($today) && $it['due']->lte($month); }));
         $overdueCount = count(array_filter($filtered, function ($it) use ($today) { return $it['due']->lt($today); }));
         $types = collect($items)
@@ -870,8 +878,11 @@ class ServiceController extends Controller
             'types' => $types,
             'selectedType' => $type,
             'todayCount' => $todayCount,
+            'weekCount' => $weekCount,
             'monthCount' => $monthCount,
             'overdueCount' => $overdueCount,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
         ]);
     }
     
@@ -963,6 +974,50 @@ class ServiceController extends Controller
             'maxDaily' => $maxDaily,
             'recentSms' => $recentSms,
         ]));
+    }
+
+    public function runScheduledAction(Request $request, Service $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'event' => ['required', 'string', 'max:50'],
+        ]);
+
+        if ($validated['event'] !== 'releasing') {
+            return back()->with('status', 'Manual action is not available for this scheduled item yet');
+        }
+
+        if ($service->service_type !== 'Application for Marriage License') {
+            return back()->with('status', 'Only marriage license release notices can be sent from here');
+        }
+
+        if (!$service->posting_start_date) {
+            return back()->with('status', 'Posting start date is missing for this service');
+        }
+
+        $due = $service->posting_start_date->copy()->addWeekdays(10);
+        if ($due->isFuture()) {
+            return back()->with('status', 'This release notice is not due yet');
+        }
+
+        if ($service->sms_release_sent || $service->status === 'Released') {
+            return back()->with('status', 'This release notice was already processed');
+        }
+
+        $service->status = 'Released';
+        $service->release_date = Carbon::today();
+        $service->sms_release_sent = true;
+        $service->save();
+
+        $this->sms->send($service, 'releasing');
+
+        ServiceStatusLog::create([
+            'service_id' => $service->id,
+            'status' => 'Released',
+            'note' => 'Release notice sent manually from scheduled messages',
+            'user_id' => optional(auth()->user())->id,
+        ]);
+
+        return back()->with('status', 'Release notice sent and the service was marked Released');
     }
 
     public function updateStatus(Request $request, Service $service): RedirectResponse

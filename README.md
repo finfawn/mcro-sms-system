@@ -1,59 +1,137 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MCRO SMS System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+This project is set up so the same codebase can run in two different ways:
 
-## About Laravel
+- Main server PC: Laragon + MySQL
+- Other PCs: plain PHP + `php artisan serve`, with or without MySQL
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+The important rule is: do not commit machine-specific `.env` values. Git updates the code, but each PC keeps its own `.env`.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Environment Strategy
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- `.env` is local to each machine and should stay different per PC.
+- `.env.example` now defaults to a lightweight local setup:
+  - `DB_CONNECTION=sqlite`
+  - `SESSION_DRIVER=file`
+  - `QUEUE_CONNECTION=sync`
+  - `CACHE_STORE=file`
+- The main server can keep using Laragon and MySQL by setting its own `.env`.
 
-## Learning Laravel
+Because `.env` is not tracked by git, `git pull` on the main server should not overwrite Laragon-specific settings.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Main Server PC (Laragon)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Use a local `.env` like this on the main server:
 
-## Laravel Sponsors
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://your-laragon-host
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3307
+DB_DATABASE=laravel
+DB_USERNAME=root
+DB_PASSWORD=
 
-### Premium Partners
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+CACHE_STORE=file
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+SMS_PROVIDER=textbee
+TEXTBEE_BASE_URL=https://api.textbee.dev
+TEXTBEE_DEVICE_ID=your_device_id
+TEXTBEE_API_KEY=your_api_key
+```
 
-## Contributing
+Notes:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- Keep the Laragon-specific MySQL port that actually matches the server PC.
+- If you use a different SMS provider later, update only the server `.env`.
+- Laragon can serve the app directly, so `php artisan serve` is not required there.
 
-## Code of Conduct
+## Dev PC Without Laragon
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+For a normal PC, you can run this project without Laragon.
 
-## Security Vulnerabilities
+### Option 1: Quick local run without MySQL
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Use:
 
-## License
+```env
+DB_CONNECTION=sqlite
+DB_DATABASE=database/database.sqlite
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+CACHE_STORE=file
+SMS_PROVIDER=log
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Then run:
+
+```powershell
+Copy-Item .env.example .env
+New-Item database\database.sqlite -ItemType File -Force
+php artisan key:generate
+php artisan migrate
+npm install
+npm run build
+php artisan serve
+```
+
+### Option 2: Local run with XAMPP or another MySQL server
+
+Use a local `.env` like:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=laravel
+DB_USERNAME=root
+DB_PASSWORD=
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+CACHE_STORE=file
+SMS_PROVIDER=log
+```
+
+Then run:
+
+```powershell
+php artisan migrate
+npm run build
+php artisan serve
+```
+
+If you want live SMS locally too, add:
+
+```env
+SMS_PROVIDER=textbee
+TEXTBEE_BASE_URL=https://api.textbee.dev
+TEXTBEE_DEVICE_ID=your_device_id
+TEXTBEE_API_KEY=your_api_key
+```
+
+## After Pulling New Code
+
+Run these after `git pull` when dependencies or assets may have changed:
+
+```powershell
+composer install
+npm install
+php artisan optimize:clear
+php artisan migrate
+npm run build
+```
+
+Use `php artisan serve` only on PCs that are not being served by Laragon.
+
+## Why This Setup Works
+
+- The code stays shared.
+- Each machine keeps its own `.env`.
+- Laragon-specific settings stay on the server PC only.
+- Plain-PC settings stay on the dev machine only.
+- Pulling updates changes the app code, not each machine's runtime choice.

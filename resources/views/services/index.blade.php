@@ -1,41 +1,43 @@
 <x-app-layout>
-    <div class="flex justify-between items-center px-4 sm:px-6 lg:px-8 pt-3">
-        <h2 class="text-base font-semibold text-gray-900 whitespace-nowrap flex-shrink-0">Service List</h2>
-        <div id="action_bar" class="flex items-center gap-2 flex-1">
-            <div class="flex-1 hidden sm:flex justify-center">
-                <form method="GET" action="{{ route('services.index') }}" class="flex items-center w-full justify-center">
-                    <input type="hidden" name="service_type" value="{{ $serviceType ?? '' }}">
-                    <input type="hidden" name="status" value="{{ $status ?? '' }}">
-                    <input type="hidden" name="sort" value="{{ $sort ?? 'updated' }}">
-                    <input type="hidden" name="direction" value="{{ $direction ?? 'desc' }}">
-                    <input type="text" name="name" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full max-w-md text-center" placeholder="Search name or reference" id="header_search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
-                </form>
+    <div class="app-shell pt-3">
+        <div class="flex justify-between items-center">
+            <h2 class="text-base font-semibold text-gray-900 whitespace-nowrap flex-shrink-0">Service List</h2>
+            <div id="action_bar" class="flex items-center gap-2 flex-1">
+                <div class="flex-1 hidden sm:flex justify-center">
+                    <form method="GET" action="{{ route('services.index') }}" class="flex items-center w-full justify-center">
+                        <input type="hidden" name="service_type" value="{{ $serviceType ?? '' }}">
+                        <input type="hidden" name="status" value="{{ $status ?? '' }}">
+                        <input type="hidden" name="sort" value="{{ $sort ?? 'updated' }}">
+                        <input type="hidden" name="direction" value="{{ $direction ?? 'desc' }}">
+                        <input type="text" name="name" value="{{ $name ?? '' }}" class="border-gray-300 rounded-md w-full max-w-md text-center" placeholder="Search name or reference" id="header_search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+                    </form>
+                </div>
+                <a href="{{ route('services.bulk-upload.form') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100" aria-label="Bulk Upload" title="Bulk Upload">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M8 2l3 3H9v4H7V5H5l3-3z"/>
+                        <path d="M2 9h12v3a2 2 0 01-2 2H4a2 2 0 01-2-2V9z"/>
+                    </svg>
+                    <span class="action-label">Bulk Upload</span>
+                </a>
+                <a href="{{ route('services.export') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100" aria-label="Export" title="Export">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M8 1a1 1 0 011 1v6.586l2.146-2.147a1 1 0 111.415 1.415l-3.853 3.853a1 1 0 01-1.415 0L2.44 8.854a1 1 0 111.415-1.415L6 9.586V2a1 1 0 112 0z"/>
+                        <path d="M2 13a1 1 0 011-1h10a1 1 0 110 2H3a1 1 0 01-1-1z"/>
+                    </svg>
+                    <span class="action-label">Export</span>
+                </a>
+                <a href="{{ route('services.create') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" aria-label="New Entry" title="New Entry">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M8 1a1 1 0 011 1v5h5a1 1 0 110 2H9v5a1 1 0 11-2 0V9H2a1 1 0 110-2h5V2a1 1 0 011-1z"/>
+                    </svg>
+                    <span class="action-label">New Entry</span>
+                </a>
             </div>
-            <a href="{{ route('services.bulk-upload.form') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100" aria-label="Bulk Upload" title="Bulk Upload">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M8 2l3 3H9v4H7V5H5l3-3z"/>
-                    <path d="M2 9h12v3a2 2 0 01-2 2H4a2 2 0 01-2-2V9z"/>
-                </svg>
-                <span class="action-label">Bulk Upload</span>
-            </a>
-            <a href="{{ route('services.export') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 border rounded-md text-gray-700 hover:bg-gray-100" aria-label="Export" title="Export">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M8 1a1 1 0 011 1v6.586l2.146-2.147a1 1 0 111.415 1.415l-3.853 3.853a1 1 0 01-1.415 0L2.44 8.854a1 1 0 111.415-1.415L6 9.586V2a1 1 0 112 0z"/>
-                    <path d="M2 13a1 1 0 011-1h10a1 1 0 110 2H3a1 1 0 01-1-1z"/>
-                </svg>
-                <span class="action-label">Export</span>
-            </a>
-            <a href="{{ route('services.create') }}" class="action-btn inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" aria-label="New Entry" title="New Entry">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M8 1a1 1 0 011 1v5h5a1 1 0 110 2H9v5a1 1 0 11-2 0V9H2a1 1 0 110-2h5V2a1 1 0 011-1z"/>
-                </svg>
-                <span class="action-label">New Entry</span>
-            </a>
         </div>
     </div>
     
     <div class="py-4">
-        <div class="max-w-7xl mx-auto px-4">
+        <div class="app-shell">
             @php
                 $defaultStatuses = ['Filed','Processing','Endorsed','Released','Rejected'];
                 $statusesByType = $statusesByType ?? [];
@@ -206,7 +208,7 @@
                 @media (min-width: 1024px) {
                     #services_table_container {
                         font-size: 1rem;
-                        max-width: 72rem;
+                        max-width: none;
                         margin-left: auto;
                         margin-right: auto;
                     }

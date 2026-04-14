@@ -1,5 +1,19 @@
+@import 'auth.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import 'auth.css';
 
+@layer components {
+    .app-shell {
+        @apply w-full max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8;
+    }
+
+    .app-shell-narrow {
+        @apply w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+    }
+
+    .app-shell-form {
+        @apply w-full max-w-3xl mx-auto px-4 sm:px-6 lg:px-8;
+    }
+}

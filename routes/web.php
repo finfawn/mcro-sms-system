@@ -20,6 +20,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard', [ServiceController::class, 'dashboard'])->name('dashboard');
     Route::post('/dashboard/clear-sms', [ServiceController::class, 'clearSmsHistory'])->middleware('admin')->name('dashboard.clear-sms');
+    Route::get('/scheduled', [ServiceController::class, 'scheduled'])->name('scheduled.index');
     
 
     Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
@@ -33,6 +34,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/services/{service}/edit', [ServiceController::class, 'edit'])->name('services.edit');
     Route::put('/services/{service}', [ServiceController::class, 'update'])->name('services.update');
     Route::put('/services/{service}/status', [ServiceController::class, 'updateStatus'])->name('services.update-status');
+    Route::post('/services/{service}/scheduled-action', [ServiceController::class, 'runScheduledAction'])->name('services.scheduled-action');
     Route::post('/services/bulk-status', [ServiceController::class, 'bulkStatus'])->name('services.bulk-status');
     Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->middleware('admin')->name('services.destroy');
     Route::post('/services/{id}/restore', [ServiceController::class, 'restore'])->middleware('admin')->name('services.restore');

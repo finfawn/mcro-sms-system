@@ -6,7 +6,21 @@
 
 @layer components {
     .app-shell {
-        @apply w-full max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8;
+        width: min(1360px, calc(100% - 12rem));
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    @media (max-width: 1024px) {
+        .app-shell {
+            width: calc(100% - 3rem);
+        }
+    }
+
+    @media (max-width: 640px) {
+        .app-shell {
+            width: calc(100% - 2rem);
+        }
     }
 
     .app-shell-narrow {

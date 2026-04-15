@@ -5,7 +5,7 @@
         </div>
     </x-slot>
     <div class="py-4">
-        <div class="app-shell-form">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="bg-white border rounded-md p-4">
                 <form method="POST" action="{{ route('admin.users.update', $user) }}" class="space-y-3">
                     @csrf

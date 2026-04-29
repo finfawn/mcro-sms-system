@@ -7,17 +7,17 @@
 @layer components {
     .app-shell {
         width: 100%;
-        max-width: none;
+        max-width: 1920px;
         margin-left: auto;
         margin-right: auto;
-        padding-left: 8rem;
-        padding-right: 8rem;
+        padding-left: max(1.5in, 6%);
+        padding-right: max(1.5in, 6%);
     }
 
     @media (max-width: 1024px) {
         .app-shell {
-            padding-left: 4rem;
-            padding-right: 4rem;
+            padding-left: max(1in, 4%);
+            padding-right: max(1in, 4%);
         }
     }
 

@@ -62,6 +62,29 @@
         </div>
 
         <style>
+            .app-shell {
+                width: 100%;
+                max-width: 1920px;
+                margin-left: auto;
+                margin-right: auto;
+                padding-left: 6rem !important;
+                padding-right: 6rem !important;
+            }
+
+            @media (max-width: 1024px) {
+                .app-shell {
+                    padding-left: 4rem !important;
+                    padding-right: 4rem !important;
+                }
+            }
+
+            @media (max-width: 640px) {
+                .app-shell {
+                    padding-left: 1rem !important;
+                    padding-right: 1rem !important;
+                }
+            }
+
             .tw-toast {
                 transform: translateY(8px);
                 opacity: 0;

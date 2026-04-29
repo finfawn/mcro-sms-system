@@ -5,34 +5,34 @@
 @tailwind utilities;
 
 @layer components {
-    .app-shell {
-        width: 100%;
-        max-width: 1920px;
-        margin-left: auto;
-        margin-right: auto;
-        padding-left: max(1.5in, 6%);
-        padding-right: max(1.5in, 6%);
-    }
-
-    @media (max-width: 1024px) {
-        .app-shell {
-            padding-left: max(1in, 4%);
-            padding-right: max(1in, 4%);
-        }
-    }
-
-    @media (max-width: 640px) {
-        .app-shell {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-    }
-
     .app-shell-narrow {
         @apply w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
     }
 
     .app-shell-form {
         @apply w-full max-w-3xl mx-auto px-4 sm:px-6 lg:px-8;
+    }
+}
+
+.app-shell {
+    width: 100%;
+    max-width: 1920px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 6rem !important;
+    padding-right: 6rem !important;
+}
+
+@media (max-width: 1024px) {
+    .app-shell {
+        padding-left: 4rem !important;
+        padding-right: 4rem !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .app-shell {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
 }

@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Service;
-use App\Services\SmsService;
 use App\Jobs\SendSmsJob;
 use Illuminate\Support\Carbon;
 
@@ -38,10 +37,8 @@ class CheckMarriageLicenseReady extends Command
             ->where('sms_ready_sent', false)
             ->get();
         foreach ($services as $service) {
-            SendSmsJob::dispatch($service->id, 'releasing');
-            $service->sms_ready_sent = true;
-            $service->save();
-            $this->info("Ready SMS logged for service #{$service->id}");
+            SendSmsJob::dispatchFor($service, 'releasing');
+            $this->info("Ready SMS queued for service #{$service->id}");
         }
         return self::SUCCESS;
     }

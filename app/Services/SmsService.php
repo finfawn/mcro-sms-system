@@ -44,7 +44,99 @@ class SmsService
         }
     }
 
-    public function send(Service $service, string $event_key): void
+    public function createPending(Service $service, string $event_key): ?SmsMessage
+    {
+        $message = $this->buildMessage($service, $event_key);
+        if (!$message) {
+            Log::warning('SMS not queued because no template/fallback body was found', [
+                'service_id' => $service->id,
+                'event_key' => $event_key,
+            ]);
+            return null;
+        }
+
+        return SmsMessage::create([
+            'service_id' => $service->id,
+            'to' => $message['to'],
+            'body' => $message['body'],
+            'provider' => (string)config('sms.provider', 'log'),
+            'event_key' => $event_key,
+            'status' => 'pending',
+            'error' => null,
+        ]);
+    }
+
+    public function send(Service $service, string $event_key, ?SmsMessage $smsMessage = null): ?SmsMessage
+    {
+        $message = $this->buildMessage($service, $event_key);
+        if (!$message) {
+            if ($smsMessage) {
+                $smsMessage->update([
+                    'status' => 'failed',
+                    'error' => 'No SMS template or fallback body was found',
+                ]);
+            }
+            return $smsMessage;
+        }
+
+        $to = $message['to'];
+        $body = $message['body'];
+
+        if ($smsMessage) {
+            $smsMessage->update([
+                'to' => $to,
+                'body' => $body,
+                'provider' => (string)config('sms.provider', 'log'),
+                'event_key' => $event_key,
+                'status' => 'processing',
+                'error' => null,
+            ]);
+        }
+
+        try {
+            $this->provider->send($to, $body);
+            $data = [
+                'service_id' => $service->id,
+                'to' => $to,
+                'body' => $body,
+                'provider' => (string)config('sms.provider', 'log'),
+                'event_key' => $event_key,
+                'status' => (bool)config('sms.mark_sent_on_accept', false) ? 'sent' : 'queued',
+                'error' => null,
+            ];
+            $smsMessage = $smsMessage
+                ? tap($smsMessage)->update($data)
+                : SmsMessage::create($data);
+            Log::info('SMS queued', [
+                'to' => $to,
+                'service_id' => $service->id,
+                'event_key' => $event_key,
+            ]);
+        } catch (\Throwable $e) {
+            $data = [
+                'service_id' => $service->id,
+                'to' => $to,
+                'body' => $body,
+                'provider' => (string)config('sms.provider', 'log'),
+                'event_key' => $event_key,
+                'status' => 'failed',
+                'error' => $e->getMessage(),
+            ];
+            $smsMessage = $smsMessage
+                ? tap($smsMessage)->update($data)
+                : SmsMessage::create($data);
+            Log::error('SMS send failed', [
+                'to' => $to,
+                'service_id' => $service->id,
+                'event_key' => $event_key,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $smsMessage;
+    }
+
+    protected function buildMessage(Service $service, string $event_key): ?array
     {
         $template = SmsTemplate::where('service_type', $service->service_type)
             ->where('event_key', $event_key)
@@ -58,44 +150,15 @@ class SmsService
         }
         $body = $template ? $template->template_body : $this->fallbackBody($service, $event_key);
         if (!$body) {
-            return;
+            return null;
         }
         $body = str_replace('{{citizen_name}}', $service->citizen_name, $body);
         $body = str_replace('{{reference_no}}', $service->reference_no, $body);
-        try {
-            $to = $this->normalizeRecipient($service->mobile_number);
-            $this->provider->send($to, $body);
-            SmsMessage::create([
-                'service_id' => $service->id,
-                'to' => $to,
-                'body' => $body,
-                'provider' => (string)config('sms.provider', 'log'),
-                'event_key' => $event_key,
-                'status' => (bool)config('sms.mark_sent_on_accept', false) ? 'sent' : 'queued',
-                'error' => null,
-            ]);
-            Log::info('SMS queued', [
-                'to' => $to,
-                'service_id' => $service->id,
-                'event_key' => $event_key,
-            ]);
-        } catch (\Throwable $e) {
-            SmsMessage::create([
-                'service_id' => $service->id,
-                'to' => $service->mobile_number,
-                'body' => $body,
-                'provider' => (string)config('sms.provider', 'log'),
-                'event_key' => $event_key,
-                'status' => 'failed',
-                'error' => $e->getMessage(),
-            ]);
-            Log::error('SMS send failed', [
-                'to' => $service->mobile_number,
-                'service_id' => $service->id,
-                'event_key' => $event_key,
-                'error' => $e->getMessage(),
-            ]);
-        }
+
+        return [
+            'to' => $this->normalizeRecipient($service->mobile_number),
+            'body' => $body,
+        ];
     }
 
     protected function normalizeRecipient(string $to): string

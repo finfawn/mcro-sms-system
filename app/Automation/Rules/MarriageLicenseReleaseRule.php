@@ -44,9 +44,8 @@ class MarriageLicenseReleaseRule implements ServiceAutomationRule
         if ($service->posting_start_date <= $threshold && !$service->sms_release_sent) {
             $service->status = 'Released';
             $service->release_date = Carbon::today();
-            $service->sms_release_sent = true;
             $service->save();
-            SendSmsJob::dispatch($service->id, 'releasing');
+            SendSmsJob::dispatchFor($service, 'releasing');
             ServiceStatusLog::create([
                 'service_id' => $service->id,
                 'status' => 'Released',

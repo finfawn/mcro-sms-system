@@ -257,7 +257,9 @@
                                                 $st = $m->status ?? '';
                                                 $label = 'Failed';
                                                 $cls = 'bg-red-100 text-red-700';
-                                                if ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
+                                                if ($st === 'pending') { $label = 'Pending'; $cls = 'bg-blue-100 text-blue-700'; }
+                                                elseif ($st === 'processing') { $label = 'Processing'; $cls = 'bg-indigo-100 text-indigo-700'; }
+                                                elseif ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
                                                 elseif ($st === 'dispatched' || $st === 'queued') { $label = 'Dispatched'; $cls = 'bg-yellow-100 text-yellow-700'; }
                                                 elseif ($st === 'sent') { $label = 'Sent'; $cls = 'bg-green-100 text-green-700'; }
                                             @endphp
@@ -287,7 +289,9 @@
                                     $st = $m->status ?? '';
                                     $label = 'Failed';
                                     $cls = 'bg-red-100 text-red-700';
-                                    if ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
+                                    if ($st === 'pending') { $label = 'Pending'; $cls = 'bg-blue-100 text-blue-700'; }
+                                    elseif ($st === 'processing') { $label = 'Processing'; $cls = 'bg-indigo-100 text-indigo-700'; }
+                                    elseif ($prov === 'LOG' || $st === 'mock') { $label = 'Simulated'; $cls = 'bg-gray-100 text-gray-700'; }
                                     elseif ($st === 'dispatched' || $st === 'queued') { $label = 'Dispatched'; $cls = 'bg-yellow-100 text-yellow-700'; }
                                     elseif ($st === 'sent') { $label = 'Sent'; $cls = 'bg-green-100 text-green-700'; }
                                 @endphp

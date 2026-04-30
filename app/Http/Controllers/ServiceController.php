@@ -345,13 +345,13 @@ class ServiceController extends Controller
             'Delayed Registration of Marriage',
         ], true)) {
             if ($previousStatus !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                SendSmsJob::dispatch($service->id, 'verification_started');
+                SendSmsJob::dispatchFor($service, 'verification_started');
             }
             if ($previousStatus !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                SendSmsJob::dispatch($service->id, 'requirements_incomplete');
+                SendSmsJob::dispatchFor($service, 'requirements_incomplete');
             }
             if ($previousStatus !== 'Consistent' && $validated['status'] === 'Consistent') {
-                SendSmsJob::dispatch($service->id, 'verification_consistent');
+                SendSmsJob::dispatchFor($service, 'verification_consistent');
             }
         }
         if (
@@ -360,9 +360,8 @@ class ServiceController extends Controller
             $validated['status'] === 'Ready for Pickup' &&
             !$service->sms_ready_sent
         ) {
-            SendSmsJob::dispatch($service->id, 'ready_for_pickup');
-            $service->sms_ready_sent = true;
             $service->save();
+            SendSmsJob::dispatchFor($service, 'ready_for_pickup');
         }
         if (
             $validated['service_type'] === 'Application for Marriage License' &&
@@ -371,9 +370,8 @@ class ServiceController extends Controller
             !$service->sms_posting_sent
         ) {
             $service->posting_start_date = now()->toDateString();
-            SendSmsJob::dispatch($service->id, 'posting_notice');
-            $service->sms_posting_sent = true;
             $service->save();
+            SendSmsJob::dispatchFor($service, 'posting_notice');
         }
 
         // Apply automation rules for status changes
@@ -1005,10 +1003,13 @@ class ServiceController extends Controller
 
         $service->status = 'Released';
         $service->release_date = Carbon::today();
-        $service->sms_release_sent = true;
         $service->save();
 
-        $this->sms->send($service, 'releasing');
+        $message = $this->sms->send($service, 'releasing');
+        if ($message && in_array($message->status, ['queued', 'sent'], true)) {
+            $service->sms_release_sent = true;
+            $service->save();
+        }
 
         ServiceStatusLog::create([
             'service_id' => $service->id,
@@ -1056,13 +1057,13 @@ class ServiceController extends Controller
         }
         if ($service->service_type === 'Delayed Registration') {
             if ($prev !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                SendSmsJob::dispatch($service->id, 'verification_started');
+                SendSmsJob::dispatchFor($service, 'verification_started');
             }
             if ($prev !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                SendSmsJob::dispatch($service->id, 'requirements_incomplete');
+                SendSmsJob::dispatchFor($service, 'requirements_incomplete');
             }
             if ($prev !== 'Consistent' && $validated['status'] === 'Consistent') {
-                SendSmsJob::dispatch($service->id, 'verification_consistent');
+                SendSmsJob::dispatchFor($service, 'verification_consistent');
             }
         }
         if (
@@ -1071,9 +1072,8 @@ class ServiceController extends Controller
             $validated['status'] === 'Ready for Pickup' &&
             !$service->sms_ready_sent
         ) {
-            SendSmsJob::dispatch($service->id, 'ready_for_pickup');
-            $service->sms_ready_sent = true;
             $service->save();
+            SendSmsJob::dispatchFor($service, 'ready_for_pickup');
         }
         if (
             $service->service_type === 'Application for Marriage License' &&
@@ -1082,24 +1082,21 @@ class ServiceController extends Controller
             !$service->sms_posting_sent
         ) {
             $service->posting_start_date = now()->toDateString();
-            SendSmsJob::dispatch($service->id, 'posting_notice');
-            $service->sms_posting_sent = true;
             $service->save();
+            SendSmsJob::dispatchFor($service, 'posting_notice');
         }
         if ($service->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
             if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    SendSmsJob::dispatch($service->id, 'psa_sent');
+                    SendSmsJob::dispatchFor($service, 'psa_sent');
             }
             if ($prev !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
-                    SendSmsJob::dispatch($service->id, 'psa_feedback_received');
+                    SendSmsJob::dispatchFor($service, 'psa_feedback_received');
             }
             if ($prev !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
-                    SendSmsJob::dispatch($service->id, 'psa_resent_for_processing');
+                    SendSmsJob::dispatchFor($service, 'psa_resent_for_processing');
             }
             if ($prev !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$service->sms_ready_sent) {
-                    SendSmsJob::dispatch($service->id, 'psa_no_feedback_uploaded');
-                $service->sms_ready_sent = true;
-                $service->save();
+                    SendSmsJob::dispatchFor($service, 'psa_no_feedback_uploaded');
             }
         }
         if ($service->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
@@ -1113,9 +1110,11 @@ class ServiceController extends Controller
                 $this->sms->send($service, 'psa_resent_for_processing');
             }
             if ($prev !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$service->sms_ready_sent) {
-                $this->sms->send($service, 'psa_no_feedback_uploaded');
-                $service->sms_ready_sent = true;
-                $service->save();
+                $message = $this->sms->send($service, 'psa_no_feedback_uploaded');
+                if ($message && in_array($message->status, ['queued', 'sent'], true)) {
+                    $service->sms_ready_sent = true;
+                    $service->save();
+                }
             }
         }
         if ($service->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
@@ -1129,9 +1128,11 @@ class ServiceController extends Controller
                 $this->sms->send($service, 'psa_resent_for_processing');
             }
             if ($prev !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$service->sms_ready_sent) {
-                $this->sms->send($service, 'psa_no_feedback_uploaded');
-                $service->sms_ready_sent = true;
-                $service->save();
+                $message = $this->sms->send($service, 'psa_no_feedback_uploaded');
+                if ($message && in_array($message->status, ['queued', 'sent'], true)) {
+                    $service->sms_ready_sent = true;
+                    $service->save();
+                }
             }
         }
         if ($service->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
@@ -1140,8 +1141,10 @@ class ServiceController extends Controller
             }
             if ($prev !== 'Posted' && $validated['status'] === 'Posted' && !$service->sms_posting_sent) {
                 $service->posting_start_date = Carbon::today()->nextWeekday();
-                $this->sms->send($service, 'petition_ready_for_posting');
-                $service->sms_posting_sent = true;
+                $message = $this->sms->send($service, 'petition_ready_for_posting');
+                if ($message && in_array($message->status, ['queued', 'sent'], true)) {
+                    $service->sms_posting_sent = true;
+                }
                 $service->save();
             }
             if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
@@ -1160,8 +1163,10 @@ class ServiceController extends Controller
             }
             if ($prev !== 'Posted' && $validated['status'] === 'Posted' && !$service->sms_posting_sent) {
                 $service->posting_start_date = Carbon::today()->nextWeekday();
-                $this->sms->send($service, 'petition_ready_for_posting');
-                $service->sms_posting_sent = true;
+                $message = $this->sms->send($service, 'petition_ready_for_posting');
+                if ($message && in_array($message->status, ['queued', 'sent'], true)) {
+                    $service->sms_posting_sent = true;
+                }
                 $service->save();
             }
             if ($prev !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
@@ -1223,13 +1228,13 @@ class ServiceController extends Controller
             }
             if ($svc->service_type === 'Delayed Registration') {
                 if ($prevStatus !== 'Under Verification' && $validated['status'] === 'Under Verification') {
-                    SendSmsJob::dispatch($svc->id, 'verification_started');
+                SendSmsJob::dispatchFor($svc, 'verification_started');
                 }
                 if ($prevStatus !== 'Inconsistent' && $validated['status'] === 'Inconsistent') {
-                    SendSmsJob::dispatch($svc->id, 'requirements_incomplete');
+                SendSmsJob::dispatchFor($svc, 'requirements_incomplete');
                 }
                 if ($prevStatus !== 'Consistent' && $validated['status'] === 'Consistent') {
-                    SendSmsJob::dispatch($svc->id, 'verification_consistent');
+                SendSmsJob::dispatchFor($svc, 'verification_consistent');
                 }
             }
             if (
@@ -1238,9 +1243,8 @@ class ServiceController extends Controller
                 $validated['status'] === 'Ready for Pickup' &&
                 !$svc->sms_ready_sent
             ) {
-                SendSmsJob::dispatch($svc->id, 'ready_for_pickup');
-                $svc->sms_ready_sent = true;
                 $svc->save();
+                SendSmsJob::dispatchFor($svc, 'ready_for_pickup');
             }
             if (
                 $svc->service_type === 'Application for Marriage License' &&
@@ -1249,40 +1253,35 @@ class ServiceController extends Controller
                 !$svc->sms_posting_sent
             ) {
                 $svc->posting_start_date = now()->toDateString();
-                SendSmsJob::dispatch($svc->id, 'posting_notice');
-                $svc->sms_posting_sent = true;
                 $svc->save();
+                SendSmsJob::dispatchFor($svc, 'posting_notice');
             }
             if ($svc->service_type === 'Endorsement for Negative PSA - Positive LCRO') {
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    SendSmsJob::dispatch($svc->id, 'psa_sent');
+                    SendSmsJob::dispatchFor($svc, 'psa_sent');
                 }
                 if ($prevStatus !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
-                    SendSmsJob::dispatch($svc->id, 'psa_feedback_received');
+                    SendSmsJob::dispatchFor($svc, 'psa_feedback_received');
                 }
                 if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
-                    SendSmsJob::dispatch($svc->id, 'psa_resent_for_processing');
+                    SendSmsJob::dispatchFor($svc, 'psa_resent_for_processing');
                 }
                 if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
-                    SendSmsJob::dispatch($svc->id, 'psa_no_feedback_uploaded');
-                    $svc->sms_ready_sent = true;
-                    $svc->save();
+                    SendSmsJob::dispatchFor($svc, 'psa_no_feedback_uploaded');
                 }
             }
             if ($svc->service_type === 'Endorsement for Blurred PSA - Clear LCRO File') {
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    SendSmsJob::dispatch($svc->id, 'psa_sent');
+                    SendSmsJob::dispatchFor($svc, 'psa_sent');
                 }
                 if ($prevStatus !== 'PSA Has Feedback' && $validated['status'] === 'PSA Has Feedback') {
-                    SendSmsJob::dispatch($svc->id, 'psa_feedback_received');
+                    SendSmsJob::dispatchFor($svc, 'psa_feedback_received');
                 }
                 if ($prevStatus !== 'Reworked and Resent' && $validated['status'] === 'Reworked and Resent') {
-                    SendSmsJob::dispatch($svc->id, 'psa_resent_for_processing');
+                    SendSmsJob::dispatchFor($svc, 'psa_resent_for_processing');
                 }
                 if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
-                    SendSmsJob::dispatch($svc->id, 'psa_no_feedback_uploaded');
-                    $svc->sms_ready_sent = true;
-                    $svc->save();
+                    SendSmsJob::dispatchFor($svc, 'psa_no_feedback_uploaded');
                 }
             }
             if ($svc->service_type === 'Endorsement of Legal Instrument & MC 2010-04 & Court Order') {
@@ -1296,49 +1295,49 @@ class ServiceController extends Controller
                     $this->sms->send($svc, 'psa_resent_for_processing');
                 }
                 if ($prevStatus !== 'PSA Successfully Uploaded' && $validated['status'] === 'PSA Successfully Uploaded' && !$svc->sms_ready_sent) {
-                    $this->sms->send($svc, 'psa_no_feedback_uploaded');
-                    $svc->sms_ready_sent = true;
-                    $svc->save();
+                    $message = $this->sms->send($svc, 'psa_no_feedback_uploaded');
+                    if ($message && in_array($message->status, ['queued', 'sent'], true)) {
+                        $svc->sms_ready_sent = true;
+                        $svc->save();
+                    }
                 }
             }
             if ($svc->service_type === 'Petitions filed under RA 9048 - Clerical Error') {
                 if ($prevStatus !== 'For Filing' && $validated['status'] === 'For Filing') {
-                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_filing');
+                    SendSmsJob::dispatchFor($svc, 'petition_ready_for_filing');
                 }
                 if ($prevStatus !== 'Posted' && $validated['status'] === 'Posted' && !$svc->sms_posting_sent) {
                     $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
-                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_posting');
-                    $svc->sms_posting_sent = true;
                     $svc->save();
+                    SendSmsJob::dispatchFor($svc, 'petition_ready_for_posting');
                 }
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    SendSmsJob::dispatch($svc->id, 'sent_to_psa_legal');
+                    SendSmsJob::dispatchFor($svc, 'sent_to_psa_legal');
                 }
                 if ($prevStatus !== 'Affirmed' && $validated['status'] === 'Affirmed') {
-                    SendSmsJob::dispatch($svc->id, 'psa_affirmed');
+                    SendSmsJob::dispatchFor($svc, 'psa_affirmed');
                 }
                 if ($prevStatus !== 'Impugned' && $validated['status'] === 'Impugned') {
-                    SendSmsJob::dispatch($svc->id, 'psa_impugned');
+                    SendSmsJob::dispatchFor($svc, 'psa_impugned');
                 }
             }
             if ($svc->service_type === 'Petitions filed under RA 9048 & RA 10172') {
                 if ($prevStatus !== 'For Filing' && $validated['status'] === 'For Filing') {
-                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_filing');
+                    SendSmsJob::dispatchFor($svc, 'petition_ready_for_filing');
                 }
                 if ($prevStatus !== 'Posted' && $validated['status'] === 'Posted' && !$svc->sms_posting_sent) {
                     $svc->posting_start_date = \Illuminate\Support\Carbon::today()->nextWeekday();
-                    SendSmsJob::dispatch($svc->id, 'petition_ready_for_posting');
-                    $svc->sms_posting_sent = true;
                     $svc->save();
+                    SendSmsJob::dispatchFor($svc, 'petition_ready_for_posting');
                 }
                 if ($prevStatus !== 'Sent to PSA' && $validated['status'] === 'Sent to PSA') {
-                    SendSmsJob::dispatch($svc->id, 'sent_to_psa_legal');
+                    SendSmsJob::dispatchFor($svc, 'sent_to_psa_legal');
                 }
                 if ($prevStatus !== 'Affirmed' && $validated['status'] === 'Affirmed') {
-                    SendSmsJob::dispatch($svc->id, 'psa_affirmed');
+                    SendSmsJob::dispatchFor($svc, 'psa_affirmed');
                 }
                 if ($prevStatus !== 'Impugned' && $validated['status'] === 'Impugned') {
-                    SendSmsJob::dispatch($svc->id, 'psa_impugned');
+                    SendSmsJob::dispatchFor($svc, 'psa_impugned');
                 }
             }
             $updatedCount++;
